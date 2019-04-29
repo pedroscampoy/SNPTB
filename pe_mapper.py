@@ -58,7 +58,7 @@ def get_arguments():
 
     return arguments
 
-args = get_arguments()
+
 
     # Determine mapper used in pipeline and get the command
     # bwa index ref.fa && bwa mem ref.fa read1.fq read2.fq > aln-pe.sam
@@ -231,9 +231,9 @@ def sam_to_index_bam(args):
     """
 
 
-bwa_mapping(args)
-#add_SG(args)
-sam_to_index_bam(args)
+# bwa_mapping(args)
+# add_SG(args)
+# sam_to_index_bam(args)
 
 #bowtie2_mapping(args)
 

@@ -72,7 +72,7 @@ def get_arguments():
 
     return arguments
 
-args = get_arguments()
+#args = get_arguments()
 
 def samtools_markdup(args):
     #http://www.htslib.org/doc/samtools.html
@@ -363,13 +363,13 @@ def hard_filter(selected_vcf, select_type='SNP'):
 #haplotype_caller(args, recalibrate=True, ploidy=1, bamout=False, forceactive=False)
 #call_variants(args, recalibrate=True)
 
-out = args.output
-sample = args.sample
+#out = args.output
+#sample = args.sample
 #raw_vcf = out + "/VCF_recal/" + sample + ".raw.vcf"
 #select_variants(raw_vcf, select_type='SNP') #select_variants(raw_vcf, select_type='INDEL')
 
-selected_vcf = out + "/VCF_recal/" + sample + ".snp.vcf"
-hard_filter(selected_vcf, select_type='SNP')
+#selected_vcf = out + "/VCF_recal/" + sample + ".snp.vcf"
+#hard_filter(selected_vcf, select_type='SNP')
 
 
 #Filter highest quality
