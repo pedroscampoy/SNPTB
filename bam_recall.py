@@ -285,6 +285,7 @@ def select_variants(raw_vcf, select_type='SNP'):
 
 def hard_filter(selected_vcf, select_type='SNP'):
     """
+    https://software.broadinstitute.org/gatk/documentation/article.php?id=6925
     https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_filters_VariantFiltration.php
     https://software.broadinstitute.org/gatk/documentation/article?id=23216
     SNP:

@@ -8,7 +8,7 @@ import argparse
 #import argcomplete
 import subprocess
 from misc import check_file_exists, extract_sample, obtain_output_dir, check_create_dir, execute_subprocess, \
-    extract_read_list
+    extract_read_list, file_to_list
 from bbduk_trimmer import bbduk_trimming
 from pe_mapper import bwa_mapping, sam_to_index_bam
 from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplotype_caller, call_variants, \
@@ -83,106 +83,146 @@ args = get_arguments()
 #Obtain all R1 and R2 from folder
 r1, r2 = extract_read_list(args.input_dir)
 
+#Check if there are samples to filter
+sample_list_F = []
+if args.sample_list == None:
+    print("No samples to filter")
+    for r1_file, r2_file in zip(r1, r2):
+        sample = extract_sample(r1_file, r2_file)
+        sample_list_F.append(sample)
+else:
+    print("samples will be filtered")
+    sample_list_F = file_to_list(args.sample_list)
+print("%d samples will be analysed: %s" % (len(sample_list_F), ",".join(sample_list_F)))
+
+
+######################################################################
+#####################START PIPELINE###################################
+######################################################################
+
 for r1_file, r2_file in zip(r1, r2):
     sample = extract_sample(r1_file, r2_file)
-    args.r1_file = r1_file
-    args.r2_file = r2_file
+    if sample in sample_list_F:
+        args.r1_file = r1_file
+        args.r2_file = r2_file
 
-    print("STARTING SAMPLE " + WHITE_BG + sample + END_FORMATTING)
+        print("STARTING SAMPLE " + WHITE_BG + sample + END_FORMATTING)
 
-    ##############START PIPELINE#####################
-    #################################################
-
-
-    #INPUT ARGUMENTS
-    ################
-    check_file_exists(args.r1_file)
-    check_file_exists(args.r2_file)
-
-    args.output = os.path.abspath(args.output)
-    check_create_dir(args.output)
-    #QUALITY CHECK
-    ##############
-    """
-    TODO: Quality check 
-    """
-    
-    #QUALITY TRIMMING AND ADAPTER REMOVAL WITH bbduk.sh
-    ###################################################
-    out_trim_dir = os.path.join(args.output, "Trimmed")
-    out_trim_name_r1 = sample + "_R1.clean.fastq.gz"
-    out_trim_name_r2 = sample + "_R2.clean.fastq.gz"
-    output_trimming_file_r1 = os.path.join(out_trim_dir, out_trim_name_r1)
-    output_trimming_file_r2 = os.path.join(out_trim_dir, out_trim_name_r2)
-    
-    if os.path.isfile(output_trimming_file_r1) and os.path.isfile(output_trimming_file_r2):
-        print(YELLOW + DIM + output_trimming_file_r1 + BOLD + " EXIST\nOmmiting Trimming for sample " + sample + END_FORMATTING)
-    else:
-        print(GREEN + "Trimming sample " + sample + END_FORMATTING)
-        #bbduk_trimming(args)
-
-    #MAPPING WITH BWA - SAM TO SORTED BAM - ADD HEADER SG
-    #####################################################
-    out_map_dir = os.path.join(args.output, "Bam")
-    out_map_name = sample + ".rg.sorted.bam"
-    output_map_file = os.path.join(out_map_dir, out_map_name)
-
-    args.r1_file = output_trimming_file_r1
-    args.r2_file = output_trimming_file_r2
-
-    if os.path.isfile(output_map_file):
-        print(YELLOW + DIM + output_map_file + BOLD + " EXIST\nOmmiting Mapping for sample " + sample + END_FORMATTING)
-    else:
-        print(GREEN + "Mapping sample " + sample + END_FORMATTING)
-        print("R1: " + output_trimming_file_r1 + "\nR2: " + output_trimming_file_r2 + "\nReference: " + args.reference)
-        bwa_mapping(args)
-        sam_to_index_bam(args)
-
-    #PREPARE REFERENCE FOR MAPPING + FAI + DICT #########
-    #####################################################
-
-    picard_dictionary(args)
-    samtools_faidx(args)
-
-    #MARK DUPLICATES WITH PICARDTOOLS ###################
-    #####################################################
-    #TO DO: remove output_map_file and include markdup in previous step checking for existence of .rg.markdup.sorted.bam
-    #out_markdup_dir = os.path.join(args.output, "Bam")
-    out_markdup_name = sample + ".rg.markdup.sorted.bam"
-    output_markdup_file = os.path.join(out_map_dir, out_markdup_name)
-
-    args.input_bam = output_map_file
-
-    if os.path.isfile(output_markdup_file):
-        print(YELLOW + DIM + output_markdup_file + BOLD + " EXIST\nOmmiting Duplucate Mark for sample " + sample + END_FORMATTING)
-    else:
-        print(GREEN + "Marking Dupes in sample " + sample + END_FORMATTING)
-        print("Input Bam: " + args.input_bam)
-        #picard_markdup(args)
-    
-    #HPLOTYPE CALL 1/2 FOR HARD FILTERING AND RECALIBRATION
-    #######################################################
-    out_gvcfr_dir = os.path.join(args.output, "GVCF_recal")
-    out_markdup_name = sample + ".rg.markdup.sorted.bam"
-    output_markdup_file = os.path.join(out_markdup_dir, out_markdup_name)
-
-    args.input_bam = output_map_file
-
-    if os.path.isfile(output_markdup_file):
-        print(YELLOW + DIM + output_markdup_file + BOLD + " EXIST\nOmmiting Duplucate Mark for sample " + sample + END_FORMATTING)
-    else:
-        print(GREEN + "Marking Dupes in sample " + sample + END_FORMATTING)
-        print("Input Bam: " + args.input_bam)
-        #picard_markdup(args)
+        ##############START PIPELINE#####################
+        #################################################
 
 
-    #haplotype_caller(args, recalibrate=True, ploidy=1, bamout=False, forceactive=False)
-    #call_variants(args, recalibrate=True)
+        #INPUT ARGUMENTS
+        ################
+        check_file_exists(args.r1_file)
+        check_file_exists(args.r2_file)
 
-    out = args.output
-    sample = args.sample
-    #raw_vcf = out + "/VCF_recal/" + sample + ".raw.vcf"
-    #select_variants(raw_vcf, select_type='SNP') #select_variants(raw_vcf, select_type='INDEL')
+        args.output = os.path.abspath(args.output)
+        check_create_dir(args.output)
+        #QUALITY CHECK
+        ##############
+        """
+        TODO: Quality check 
+        """
+        
+        #QUALITY TRIMMING AND ADAPTER REMOVAL WITH bbduk.sh
+        ###################################################
+        out_trim_dir = os.path.join(args.output, "Trimmed")
+        out_trim_name_r1 = sample + "_R1.clean.fastq.gz"
+        out_trim_name_r2 = sample + "_R2.clean.fastq.gz"
+        output_trimming_file_r1 = os.path.join(out_trim_dir, out_trim_name_r1)
+        output_trimming_file_r2 = os.path.join(out_trim_dir, out_trim_name_r2)
+        
+        if os.path.isfile(output_trimming_file_r1) and os.path.isfile(output_trimming_file_r2):
+            print(YELLOW + DIM + output_trimming_file_r1 + BOLD + " EXIST\nOmmiting Trimming for sample " + sample + END_FORMATTING)
+        else:
+            print(GREEN + "Trimming sample " + sample + END_FORMATTING)
+            bbduk_trimming(args)
 
-    selected_vcf = out + "/VCF_recal/" + sample + ".snp.vcf"
-    hard_filter(selected_vcf, select_type='SNP')
+        #MAPPING WITH BWA - SAM TO SORTED BAM - ADD HEADER SG
+        #####################################################
+        out_map_dir = os.path.join(args.output, "Bam")
+        out_map_name = sample + ".rg.sorted.bam"
+        output_map_file = os.path.join(out_map_dir, out_map_name)
+
+        args.r1_file = output_trimming_file_r1
+        args.r2_file = output_trimming_file_r2
+
+        if os.path.isfile(output_map_file):
+            print(YELLOW + DIM + output_map_file + BOLD + " EXIST\nOmmiting Mapping for sample " + sample + END_FORMATTING)
+        else:
+            print(GREEN + "Mapping sample " + sample + END_FORMATTING)
+            print("R1: " + output_trimming_file_r1 + "\nR2: " + output_trimming_file_r2 + "\nReference: " + args.reference)
+            bwa_mapping(args)
+            sam_to_index_bam(args)
+
+        #PREPARE REFERENCE FOR MAPPING + FAI + DICT #########
+        #####################################################
+
+        picard_dictionary(args)
+        samtools_faidx(args)
+
+        #MARK DUPLICATES WITH PICARDTOOLS ###################
+        #####################################################
+        #TO DO: remove output_map_file and include markdup in previous step checking for existence of .rg.markdup.sorted.bam
+        #out_markdup_dir = os.path.join(args.output, "Bam")
+        out_markdup_name = sample + ".rg.markdup.sorted.bam"
+        output_markdup_file = os.path.join(out_map_dir, out_markdup_name)
+
+        args.input_bam = output_map_file
+
+        if os.path.isfile(output_markdup_file):
+            print(YELLOW + DIM + output_markdup_file + BOLD + " EXIST\nOmmiting Duplucate Mark for sample " + sample + END_FORMATTING)
+        else:
+            print(GREEN + "Marking Dupes in sample " + sample + END_FORMATTING)
+            print("Input Bam: " + args.input_bam)
+            picard_markdup(args)
+        
+        #HAPLOTYPE CALL 1/2 FOR HARD FILTERING AND RECALIBRATION
+        #######################################################
+        out_gvcfr_dir = os.path.join(args.output, "GVCF_recal")
+        out_gvcfr_name = sample + ".g.vcf"
+        output_gvcfr_file = os.path.join(out_gvcfr_dir, out_gvcfr_name)
+
+        if os.path.isfile(output_gvcfr_file):
+            print(YELLOW + DIM + output_gvcfr_file + BOLD + " EXIST\nOmmiting Haplotype Call (Recall) for sample " + sample + END_FORMATTING)
+        else:
+            print(GREEN + "Haplotype Calling (Recall) in sample " + sample + END_FORMATTING)
+            haplotype_caller(args, recalibrate=True, ploidy=1, bamout=False, forceactive=False)
+
+        #CALL VARIANTS 1/2 FOR HARD FILTERING AND RECALIBRATION
+        #######################################################
+        out_vcfr_dir = os.path.join(args.output, "VCF_recal")
+        out_vcfr_name = sample + ".raw.vcf"
+        output_vcfr_file = os.path.join(out_vcfr_dir, out_vcfr_name)
+
+        if os.path.isfile(output_vcfr_file):
+            print(YELLOW + DIM + output_vcfr_file + BOLD + " EXIST\nOmmiting Variant Calling (Recall) for sample " + sample + END_FORMATTING)
+        else:
+            print(GREEN + "Variant Calling (Recall) in sample " + sample + END_FORMATTING)
+            call_variants(args, recalibrate=True)
+
+        #SELECT VARIANTS 1/2 FOR HARD FILTERING AND RECALIBRATION
+        #########################################################
+        out_vcfsnpr_name = sample + ".snp.vcf"
+        output_vcfsnpr_file = os.path.join(out_vcfr_dir, out_vcfsnpr_name)
+
+        if os.path.isfile(output_vcfsnpr_file):
+            print(YELLOW + DIM + output_vcfsnpr_file + BOLD + " EXIST\nOmmiting Variant Selection (Recall) for sample " + sample + END_FORMATTING)
+        else:
+            print(GREEN + "Selecting Variants (Recall) in sample " + sample + END_FORMATTING)
+            select_variants(output_vcfr_file, select_type='SNP') #select_variants(output_vcfr_file, select_type='INDEL')
+        
+        #HARD FILTER VARIANTS 1/2 FOR RECALIBRATION #############
+        #########################################################
+        out_vcfhfsnpr_name = sample + ".hf.snp.vcf"
+        output_vcfhfsnpr_file = os.path.join(out_vcfr_dir, out_vcfhfsnpr_name)
+
+        if os.path.isfile(output_vcfhfsnpr_file):
+            print(YELLOW + DIM + output_vcfhfsnpr_file + BOLD + " EXIST\nOmmiting Hard Filtering (Recall) for sample " + sample + END_FORMATTING)
+        else:
+            print(GREEN + "Hard Filtering Variants (Recall) in sample " + sample + END_FORMATTING)
+            hard_filter(output_vcfsnpr_file, select_type='SNP')
+
+
+            #./snptb_runner.py -i /home/laura/ANALYSIS/Lofreq/coinfection_designed/raw -r reference/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_designed/TEST -s sample_list.txt

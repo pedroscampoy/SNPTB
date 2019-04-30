@@ -186,5 +186,10 @@ def return_codon_position(number):
         position = 3
     print("number= %s, pos= %s" % (number,position))
 
-
-extract_read_list("/home/pedro/analysis/Mixed/RAW/")
+def file_to_list(file_name):
+    list_F = []
+    file_name_abs = os.path.abspath(file_name)
+    with open(file_name_abs, "r") as f:
+        for line in f:
+            list_F.append(line.strip())
+    return list_F
