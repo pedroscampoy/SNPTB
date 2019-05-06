@@ -216,41 +216,43 @@ def haplotype_caller(args, recalibrate=False, ploidy=1, bamout=False, forceactiv
    --annotation-group AS_StandardAnnotation --annotation-group StandardHCAnnotation
     """
 
-def call_variants(args, recalibrate=False):
+def call_variants(args, recalibrate=False, group=True):
     """
     https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_GenotypeGVCFs.php
     #Call variants:
     gatk --java-options "-Xmx4g" GenotypeGVCFs -R Homo_sapiens_assembly38.fasta -V input.g.vcf.gz -O output.vcf.gz
     """
+    output = os.path.abspath(args.output)
     input_bam = os.path.abspath(args.input_bam)
     input_reference = os.path.abspath(args.reference)
     
     path_file_name = input_bam.split(".")[0]
     file_name = path_file_name.split("/")[-1] #sample_name
+    group_name = output.split("/")[-1] #group_name
 
     if recalibrate:
-        gvcf_output_dir = obtain_output_dir(args, "GVCF_recal")
-        gvcf_output_file = file_name + ".g.vcf"
-        gvcf_output_full = os.path.join(gvcf_output_dir, gvcf_output_file)
-
+        gvcf_input_dir = obtain_output_dir(args, "GVCF_recal")
         vcf_output_dir = obtain_output_dir(args, "VCF_recal")
-        vcf_output_file = file_name + ".raw.vcf"
-        vcf_output_full = os.path.join(vcf_output_dir, vcf_output_file)
     else:
-        gvcf_output_dir = obtain_output_dir(args, "GVCF")
-        gvcf_output_file = file_name + ".g.vcf"
-        gvcf_output_full = os.path.join(gvcf_output_dir, gvcf_output_file)
-
+        gvcf_input_dir = obtain_output_dir(args, "GVCF")
         vcf_output_dir = obtain_output_dir(args, "VCF")
-        vcf_output_file = file_name + ".raw.vcf"
-        vcf_output_full = os.path.join(vcf_output_dir, vcf_output_file)
 
-    check_create_dir(gvcf_output_dir)
+    if group:
+            gvcf_input_file = group_name + ".cohort.g.vcf"
+            vcf_output_file = group_name + ".cohort.raw.vcf"
+    else:
+            gvcf_input_file = file_name + ".g.vcf"
+            vcf_output_file = file_name + ".raw.vcf"
+
+    gvcf_input_full = os.path.join(gvcf_input_dir, gvcf_input_file)
+    vcf_output_full = os.path.join(vcf_output_dir, vcf_output_file)
+
+    check_create_dir(gvcf_input_dir)
     check_create_dir(vcf_output_dir)
 
     cmd = ["gatk", "GenotypeGVCFs", 
     "--reference", input_reference,
-    "--variant", gvcf_output_full,
+    "--variant", gvcf_input_full,
     "--output", vcf_output_full]
 
     execute_subprocess(cmd)
@@ -271,7 +273,7 @@ def select_variants(raw_vcf, select_type='SNP'):
     input_vcf = os.path.abspath(raw_vcf)
     check_file_exists(input_vcf)
     
-    raw_vcf_file_name = input_vcf.split(".")[0]
+    raw_vcf_file_name = (".").join(input_vcf.split(".")[:-2])
     #file_name = raw_vcf_file_name.split("/")[-1] #sample_name
 
     vcf_selected_output_file = raw_vcf_file_name + extension
@@ -302,7 +304,7 @@ def hard_filter(selected_vcf, select_type='SNP'):
     input_vcf = os.path.abspath(selected_vcf)
     check_file_exists(input_vcf)
     
-    selected_vcf_file_name = input_vcf.split(".")[0]
+    selected_vcf_file_name = (".").join(input_vcf.split(".")[:-2])
 
     if select_type == "SNP":
         extension = ".snp.hf.vcf"
@@ -314,6 +316,7 @@ def hard_filter(selected_vcf, select_type='SNP'):
             "--filter-expression", "SOR > 3.0", "--filter-name", "SOR3",
             "--filter-expression", "FS > 60.0", "--filter-name", "FS60",
             "--filter-expression", "MQ < 40.0", "--filter-name", "MQ40",
+            "--filter-expression", "DP < 4", "--filter-name", "DP4",
             "--filter-expression", "MQRankSum < -12.5", "--filter-name", "MQRankSum-12.5",
             "--filter-expression", "ReadPosRankSum < -8.0", "--filter-name", "ReadPosRankSum-8",
             "--output", vcf_hard_filtered_output_file]
@@ -332,12 +335,79 @@ def hard_filter(selected_vcf, select_type='SNP'):
         print(RED + BOLD + "Choose a correct type to filter" + END_FORMATTING)
 
     execute_subprocess(cmd)
+
+
+def combine_gvcf(args, recalibrate=False):
+    """
+    https://software.broadinstitute.org/gatk/documentation/tooldocs/4.1.2.0/org_broadinstitute_hellbender_tools_walkers_CombineGVCFs.php
+    #combined multi-sample gVCF:
+    gatk CombineGVCFs -R reference.fasta --variant sample1.g.vcf.gz --variant sample2.g.vcf.gz -O cohort.g.vcf.gz
+    """
+    output = os.path.abspath(args.output)
+    input_reference = os.path.abspath(args.reference)
     
- 
+    group_name = output.split("/")[-1] #group_name
+
+    if recalibrate:
+        gvcf_input_dir = obtain_output_dir(args, "GVCF_recal")
+    else:
+        gvcf_input_dir = obtain_output_dir(args, "GVCF")
+
+    gvcf_output_file = group_name + ".cohort.g.vcf"
+    gvcf_output_full = os.path.join(gvcf_input_dir, gvcf_output_file)
+
+    check_create_dir(gvcf_input_dir)
+
+    cmd = ["gatk", "CombineGVCFs", 
+    "--reference", input_reference,
+    "--output", gvcf_output_full]
+
+    for root, _, files in os.walk(gvcf_input_dir):
+        for name in files:
+            filename = os.path.join(root, name)
+            if filename.endswith(".g.vcf"):
+                cmd.append("--variant")
+                cmd.append(filename)
+    
+    execute_subprocess(cmd)
 
 
+def recalibrate_bam(args):
+    """
+    https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_bqsr_BaseRecalibrator.php
+    #Recalibrate bam:
+    gatk BaseRecalibrator --input my_reads.bam --reference reference.fasta --known-sites sites_of_variation.vcf \
+    --known-sites another/optional/setOfSitesToMask.vcf --output recal_data.table
+    """
+    output = os.path.abspath(args.output)
+    input_reference = os.path.abspath(args.reference)
+    
+    group_name = output.split("/")[-1] #group_name
 
-#BaseRecalibrator
+    
+    gvcf_input_dir = obtain_output_dir(args, "GVCF_recal")
+    
+    gvcf_input_dir = obtain_output_dir(args, "GVCF")
+
+    gvcf_output_file = group_name + ".cohort.g.vcf"
+    gvcf_output_full = os.path.join(gvcf_input_dir, gvcf_output_file)
+
+    check_create_dir(gvcf_input_dir)
+
+    cmd = ["gatk", "CombineGVCFs", 
+    "--reference", input_reference,
+    "--output", gvcf_output_full]
+
+    for root, _, files in os.walk(gvcf_input_dir):
+        for name in files:
+            filename = os.path.join(root, name)
+            if filename.endswith(".g.vcf"):
+                cmd.append("--variant")
+                cmd.append(filename)
+    
+    execute_subprocess(cmd)
+
+
 
 #     gatk BaseRecalibrator \
 #    --input my_reads.bam \

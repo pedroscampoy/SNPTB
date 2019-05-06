@@ -1,2 +1,4 @@
-PAIR1_80_20
-PAIR2_80_20
+1mixed
+2mixed
+3mixed
+4mixed
