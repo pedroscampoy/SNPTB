@@ -407,7 +407,26 @@ def recalibrate_bam(args):
     
     execute_subprocess(cmd)
 
-
+def select_pass(raw_vcf):
+    """
+    Filter a vcf file. Output a vcf file with PASS positions adding a .pass to the output file
+    """
+    input_vcf = os.path.abspath(raw_vcf)
+    raw_vcf_file_name = (".").join(input_vcf.split(".")[:-1])
+     
+    extension = ".pass.vcf"
+    vcf_selected_output_file = raw_vcf_file_name + extension
+    
+    check_file_exists(input_vcf)
+    
+    with open(input_vcf, "r") as f:
+        with open(vcf_selected_output_file, "w") as f1:
+            for line in f:
+                if line.startswith("#"):
+                    f1.write(line)
+                else:
+                    if line.split("\t")[6] == "PASS":
+                        f1.write(line)
 
 #     gatk BaseRecalibrator \
 #    --input my_reads.bam \
@@ -441,6 +460,8 @@ def recalibrate_bam(args):
 
 #selected_vcf = out + "/VCF_recal/" + sample + ".snp.vcf"
 #hard_filter(selected_vcf, select_type='SNP')
+
+#select_pass("/home/laura/ANALYSIS/Lofreq/coinfection_italy/VCF_recal/coinfection_italy.cohort.snp.hf.vcf")
 
 
 #Filter highest quality

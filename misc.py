@@ -15,22 +15,28 @@ The above ANSI escape code will set the text colour to bright green. The format 
 40m = Background colour, 40 is for black.
 """
 END_FORMATTING = '\033[0m'
+WHITE_BG = '\033[0;30;47m'
 BOLD = '\033[1m'
 UNDERLINE = '\033[4m'
 RED = '\033[31m'
 GREEN = '\033[32m'
 MAGENTA = '\033[35m'
+BLUE =  '\033[34m'
+CYAN = '\033[36m'
 YELLOW = '\033[93m'
 DIM = '\033[2m'
 
 def check_file_exists(file_name):
     """
-    Check file exist, if not program exit.
+        Check file exist and is not 0 Kb, if not program exit.
     """
-    if not os.path.isfile(file_name):
-        print(RED + BOLD + "File: %s not found\n" % file_name + END_FORMATTING)
+    file_info = os.stat(file_name) #Retrieve the file info to check if has size > 0
+
+    if not os.path.isfile(file_name) or file_info.st_size > 0:
+        print(RED + BOLD + "File: %s not found or empty\n" % file_name + END_FORMATTING)
         sys.exit(1)
     return os.path.isfile(file_name)
+
 
 def check_remove_file(file_name):
     """

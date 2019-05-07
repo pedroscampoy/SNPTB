@@ -12,7 +12,7 @@ from misc import check_file_exists, extract_sample, obtain_output_dir, check_cre
 from bbduk_trimmer import bbduk_trimming
 from pe_mapper import bwa_mapping, sam_to_index_bam
 from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplotype_caller, call_variants, \
-    select_variants, hard_filter, combine_gvcf
+    select_variants, hard_filter, combine_gvcf, select_pass
 
 """
 =============================================================
@@ -288,12 +288,28 @@ else:
     print(GREEN + "Hard Filtering Variants (Recall-Group) in group " + group_name + END_FORMATTING)
     hard_filter(output_vcfsnpr_file, select_type='SNP')
     hard_filter(output_vcfindelr_file, select_type='INDEL')
+    select_pass("/home/laura/ANALYSIS/Lofreq/coinfection_italy/VCF_recal/coinfection_italy.cohort.snp.hf.vcf")
+
+#HARD FILTER VARIANTS 1/2 FOR RECALIBRATION #############
+#########################################################
+out_vcfhfsnppass_name = group_name + ".cohort.snp.hf.pass.vcf"
+out_vcfhfindelpass_name = group_name + ".cohort.indel.hf.pass.vcf"
+output_vcfhfsnppass_file = os.path.join(out_vcfr_dir, out_vcfhfsnppass_name)
+output_vcfhfindelpass_file = os.path.join(out_vcfr_dir, out_vcfhfindelpass_name)
+
+
+if os.path.isfile(output_vcfhfsnpr_file) and os.path.isfile(output_vcfhfsnppass_file):
+    print(YELLOW + DIM + output_vcfhfsnppass_file + BOLD + " EXIST\nOmmiting PASS Filtering (Recall-Group) for group " + group_name + END_FORMATTING)
+else:
+    print(GREEN + "PASS Filtering Variants (Recall-Group) in group " + group_name + END_FORMATTING)
+    select_pass(output_vcfhfsnpr_file)
+    select_pass(output_vcfhfindelr_file)
 
 
     ######################################################################
     ##############START RECALIBRATION AND FINAL CALL######################
     ######################################################################
-
+"""
 for r1_file, r2_file in zip(r1, r2):
     sample = extract_sample(r1_file, r2_file)
     if sample in sample_list_F:
@@ -317,3 +333,4 @@ for r1_file, r2_file in zip(r1, r2):
 """
 
 #./snptb_runner.py -i /home/laura/ANALYSIS/Lofreq/coinfection_designed/raw -r reference/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_designed/TEST -s sample_list.txt
+#./snptb_runner.py -i /home/laura/RAW/Mixtas_Italia/ -r reference/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_italy/
