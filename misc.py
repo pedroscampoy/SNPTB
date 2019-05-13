@@ -32,7 +32,7 @@ def check_file_exists(file_name):
     """
     file_info = os.stat(file_name) #Retrieve the file info to check if has size > 0
 
-    if not os.path.isfile(file_name) or file_info.st_size > 0:
+    if not os.path.isfile(file_name) or file_info.st_size == 0:
         print(RED + BOLD + "File: %s not found or empty\n" % file_name + END_FORMATTING)
         sys.exit(1)
     return os.path.isfile(file_name)

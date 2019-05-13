@@ -371,44 +371,33 @@ def combine_gvcf(args, recalibrate=False):
     
     execute_subprocess(cmd)
 
-
-def recalibrate_bam(args):
+def select_pass_variants(raw_vcf):
     """
-    https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_bqsr_BaseRecalibrator.php
-    #Recalibrate bam:
-    gatk BaseRecalibrator --input my_reads.bam --reference reference.fasta --known-sites sites_of_variation.vcf \
-    --known-sites another/optional/setOfSitesToMask.vcf --output recal_data.table
+    Filter a vcf file. Output a vcf file with PASS positions adding a .pass to the output file
+    Used since it creates the neccesasary vcf index
+    https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_variantutils_SelectVariants.php
+    https://gatkforums.broadinstitute.org/gatk/discussion/13127/do-gatk4-tools-ignore-vcf-sites-marked-as-filtered-or-must-they-be-removed-from-the-file
     """
-    output = os.path.abspath(args.output)
-    input_reference = os.path.abspath(args.reference)
-    
-    group_name = output.split("/")[-1] #group_name
 
-    
-    gvcf_input_dir = obtain_output_dir(args, "GVCF_recal")
-    
-    gvcf_input_dir = obtain_output_dir(args, "GVCF")
+    input_vcf = os.path.abspath(raw_vcf)
+    check_file_exists(input_vcf)
 
-    gvcf_output_file = group_name + ".cohort.g.vcf"
-    gvcf_output_full = os.path.join(gvcf_input_dir, gvcf_output_file)
+    raw_vcf_file_name = (".").join(input_vcf.split(".")[:-1])
+     
+    extension = ".pass.vcf"
+    vcf_selected_output_file = raw_vcf_file_name + extension
 
-    check_create_dir(gvcf_input_dir)
+    cmd = ["gatk", "SelectVariants", 
+    "--variant", input_vcf,
+    "--exclude-filtered",
+    "--remove-unused-alternates",
+    "--output", vcf_selected_output_file]
 
-    cmd = ["gatk", "CombineGVCFs", 
-    "--reference", input_reference,
-    "--output", gvcf_output_full]
-
-    for root, _, files in os.walk(gvcf_input_dir):
-        for name in files:
-            filename = os.path.join(root, name)
-            if filename.endswith(".g.vcf"):
-                cmd.append("--variant")
-                cmd.append(filename)
-    
     execute_subprocess(cmd)
 
 def select_pass(raw_vcf):
     """
+    Homemade script
     Filter a vcf file. Output a vcf file with PASS positions adding a .pass to the output file
     """
     input_vcf = os.path.abspath(raw_vcf)
@@ -427,6 +416,50 @@ def select_pass(raw_vcf):
                 else:
                     if line.split("\t")[6] == "PASS":
                         f1.write(line)
+
+
+def recalibrate_bam(args, tb=True):
+    """
+    https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_bqsr_BaseRecalibrator.php
+    #Recalibrate bam:
+    gatk BaseRecalibrator --input my_reads.bam --reference reference.fasta --known-sites sites_of_variation.vcf \
+    --known-sites another/optional/setOfSitesToMask.vcf --output recal_data.table
+    """
+    #output = os.path.abspath(args.output)
+    input_reference = os.path.abspath(args.reference)
+    
+    #group_name = output.split("/")[-1] #group_name
+    sample_name = args.sample
+    bam_input_dir = obtain_output_dir(args, "Bam")
+    vcf_input_dir = obtain_output_dir(args, "VCF_recal")
+    
+    bam_input_file_name = sample_name + ".rg.markdup.sorted.bam" 
+    bam_input_file = os.path.join(bam_input_dir, bam_input_file_name)
+
+    table_output_file_name = sample_name + ".recall.table"
+    table_output_file = os.path.join(vcf_input_dir, table_output_file_name)
+
+    cmd = ["gatk", "BaseRecalibrator", 
+    "--reference", input_reference,
+    "--input", bam_input_file,
+    "--output", table_output_file]
+
+    if tb == True:
+        cmd.append("--known-sites")
+        cmd.append("reference/190508_ddtb.BQSR.table")
+
+    for root, _, files in os.walk(vcf_input_dir):
+        for name in files:
+            filename = os.path.join(root, name)
+            if filename.endswith(".hf.pass.vcf"):
+                cmd.append("--known-sites")
+                cmd.append(filename)
+    
+    execute_subprocess(cmd)
+
+
+
+
 
 #     gatk BaseRecalibrator \
 #    --input my_reads.bam \

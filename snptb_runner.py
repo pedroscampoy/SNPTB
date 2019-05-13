@@ -12,7 +12,7 @@ from misc import check_file_exists, extract_sample, obtain_output_dir, check_cre
 from bbduk_trimmer import bbduk_trimming
 from pe_mapper import bwa_mapping, sam_to_index_bam
 from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplotype_caller, call_variants, \
-    select_variants, hard_filter, combine_gvcf, select_pass
+    select_variants, hard_filter, combine_gvcf, select_pass, select_pass_variants
 
 """
 =============================================================
@@ -54,11 +54,12 @@ def get_arguments():
 
     input_group.add_argument('-i', '--input', dest="input_dir", metavar="input_directory", type=str, required=True, help='Input directory containing all fast[aq] files')
     input_group.add_argument('-r', '--reference', metavar="reference", type=str, required=True, help='File to map against')
+    input_group.add_argument('-s', '--sample', metavar="sample", type=str, required=False, help='Sample to identify further files')
 
     output_group = parser.add_argument_group('Output', 'Required parameter to output results')
 
     output_group.add_argument('-o', '--output', type=str, required=True, help='Output directory to extract all results')
-    output_group.add_argument('-s', '--sample_list', type=str, required=False, help='Sample name to handle output files ')
+    output_group.add_argument('-S', '--sample_list', type=str, required=False, help='Sample name to handle output files ')
 
     trimming_group = parser.add_argument_group('Trimming parameters', 'parameters for diferent triming conditions')
 
@@ -102,6 +103,7 @@ print("%d samples will be analysed: %s" % (len(sample_list_F), ",".join(sample_l
 
 for r1_file, r2_file in zip(r1, r2):
     sample = extract_sample(r1_file, r2_file)
+    args.sample = sample
     if sample in sample_list_F:
         args.r1_file = r1_file
         args.r2_file = r2_file
@@ -302,8 +304,8 @@ if os.path.isfile(output_vcfhfsnpr_file) and os.path.isfile(output_vcfhfsnppass_
     print(YELLOW + DIM + output_vcfhfsnppass_file + BOLD + " EXIST\nOmmiting PASS Filtering (Recall-Group) for group " + group_name + END_FORMATTING)
 else:
     print(GREEN + "PASS Filtering Variants (Recall-Group) in group " + group_name + END_FORMATTING)
-    select_pass(output_vcfhfsnpr_file)
-    select_pass(output_vcfhfindelr_file)
+    select_pass_variants(output_vcfhfsnpr_file)
+    select_pass_variants(output_vcfhfindelr_file)
 
 
     ######################################################################
@@ -333,4 +335,4 @@ for r1_file, r2_file in zip(r1, r2):
 """
 
 #./snptb_runner.py -i /home/laura/ANALYSIS/Lofreq/coinfection_designed/raw -r reference/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_designed/TEST -s sample_list.txt
-#./snptb_runner.py -i /home/laura/RAW/Mixtas_Italia/ -r reference/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_italy/
+#/home/laura/DEVELOP/SNPTB/snptb_runner.py -i /home/laura/RAW/Mixtas_Italia/ -r reference/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_italy/
