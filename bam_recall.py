@@ -160,30 +160,33 @@ def haplotype_caller(args, recalibrate=False, ploidy=1, bamout=False, forceactiv
     #No excuses
     https://software.broadinstitute.org/gatk/documentation/article?id=11081
     """
-    input_bam = os.path.abspath(args.input_bam)
+    #input_bam = os.path.abspath(args.input_bam)
     input_reference = os.path.abspath(args.reference)
     
-    path_file_name = input_bam.split(".")[0]
-    file_name = path_file_name.split("/")[-1] #sample_name
+    bam_output_dir = obtain_output_dir(args, "Bam")
+    #file_name = path_file_name.split("/")[-1] #sample_name
+    file_name = args.sample
+    #path_file_name = os.path.join(output_dir, gvcf_output_file)
 
     if recalibrate:
-        output_markdup_sorted = path_file_name + ".rg.markdup.sorted.bam"
+        input_bam_to_call_name = file_name + ".rg.markdup.sorted.bam" 
 
         gvcf_output_dir = obtain_output_dir(args, "GVCF_recal")
         gvcf_output_file = file_name + ".g.vcf"
-        gvcf_output_full = os.path.join(gvcf_output_dir, gvcf_output_file)
     else:
-        output_markdup_sorted = path_file_name + ".bqsr.bam"
+        input_bam_to_call_name = file_name + ".bqsr.bam"
 
         gvcf_output_dir = obtain_output_dir(args, "GVCF")
         gvcf_output_file = file_name + ".g.vcf"
-        gvcf_output_full = os.path.join(gvcf_output_dir, gvcf_output_file)
 
     check_create_dir(gvcf_output_dir)
 
+    input_bam_to_call = os.path.join(bam_output_dir, input_bam_to_call_name)
+    gvcf_output_full = os.path.join(gvcf_output_dir, gvcf_output_file)
+
     hc_args = ["gatk", "HaplotypeCaller",
      "--reference", input_reference,
-     "--input", output_markdup_sorted,
+     "--input", input_bam_to_call,
      "--output", gvcf_output_full,
      "--emit-ref-confidence", "GVCF",
      "--annotation-group", "AS_StandardAnnotation",
@@ -191,7 +194,7 @@ def haplotype_caller(args, recalibrate=False, ploidy=1, bamout=False, forceactiv
      ]
 
     #Create bam index
-    cmd_index = ["samtools", "index", output_markdup_sorted]
+    cmd_index = ["samtools", "index", input_bam_to_call]
     execute_subprocess(cmd_index)
 
     if bamout:
@@ -223,11 +226,10 @@ def call_variants(args, recalibrate=False, group=True):
     gatk --java-options "-Xmx4g" GenotypeGVCFs -R Homo_sapiens_assembly38.fasta -V input.g.vcf.gz -O output.vcf.gz
     """
     output = os.path.abspath(args.output)
-    input_bam = os.path.abspath(args.input_bam)
+
     input_reference = os.path.abspath(args.reference)
     
-    path_file_name = input_bam.split(".")[0]
-    file_name = path_file_name.split("/")[-1] #sample_name
+    file_name = args.sample #sample_name
     group_name = output.split("/")[-1] #group_name
 
     if recalibrate:
@@ -420,10 +422,14 @@ def select_pass(raw_vcf):
 
 def recalibrate_bam(args, tb=True):
     """
+    BaseRecalibrator
     https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_bqsr_BaseRecalibrator.php
     #Recalibrate bam:
     gatk BaseRecalibrator --input my_reads.bam --reference reference.fasta --known-sites sites_of_variation.vcf \
     --known-sites another/optional/setOfSitesToMask.vcf --output recal_data.table
+    ApplyBQSR
+    https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_bqsr_ApplyBQSR.php
+    gatk ApplyBQSR --reference reference.fasta --input input.bam --bqsr-recal-file recalibration.table --output output.bam
     """
     #output = os.path.abspath(args.output)
     input_reference = os.path.abspath(args.reference)
@@ -439,66 +445,64 @@ def recalibrate_bam(args, tb=True):
     table_output_file_name = sample_name + ".recall.table"
     table_output_file = os.path.join(vcf_input_dir, table_output_file_name)
 
-    cmd = ["gatk", "BaseRecalibrator", 
+    #BaseRecalibrator
+
+    cmd_bqsr = ["gatk", "BaseRecalibrator", 
     "--reference", input_reference,
     "--input", bam_input_file,
     "--output", table_output_file]
 
     if tb == True:
-        cmd.append("--known-sites")
-        cmd.append("reference/190508_ddtb.BQSR.table")
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        reference_dir = os.path.join(script_dir, "reference")
+        reference_file = os.path.join(reference_dir, "190508_ddtb.BQSR.table")
+        cmd_bqsr.append("--known-sites")
+        cmd_bqsr.append(reference_file)
 
     for root, _, files in os.walk(vcf_input_dir):
         for name in files:
             filename = os.path.join(root, name)
             if filename.endswith(".hf.pass.vcf"):
-                cmd.append("--known-sites")
-                cmd.append(filename)
+                cmd_bqsr.append("--known-sites")
+                cmd_bqsr.append(filename)
     
-    execute_subprocess(cmd)
-
-
-
-
-
-#     gatk BaseRecalibrator \
-#    --input my_reads.bam \
-#    --reference reference.fasta \
-#    --known-sites sites_of_variation.vcf \
-#    --known-sites another/optional/setOfSitesToMask.vcf \
-#    --output recal_data.table
+    execute_subprocess(cmd_bqsr)
 
     #ApplyBQSR
 
-# gatk ApplyBQSR \
-#    -R reference.fasta \
-#    -I input.bam \
-#    --bqsr-recal-file recalibration.table \
-#    -O output.bam
+    bam_output_file_name = sample_name + ".bqsr.bam"
+    bam_output_file = os.path.join(bam_input_dir, bam_output_file_name)
+
+    cmd_apply = ["gatk", "ApplyBQSR", 
+    "--reference", input_reference,
+    "--input", bam_input_file,
+    "--bqsr-recal-file", table_output_file,
+    "--output", bam_output_file]
+
+    execute_subprocess(cmd_apply)
 
 
+def split_vcf_saples(vcf_file):
+    """
+    https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_variantutils_SelectVariants.php
+    https://www.biostars.org/p/224702/
+    #TODO: check if argument --exclude-filtered is suitable here. It would save select_pass_variants() step
+    """
+    samples = subprocess.run(["bcftools", "query", "-l", vcf_file],stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, universal_newlines=True)
+    sample_list = samples.stdout.split("\n")[:-1]
+    
+    vcf_file_path = os.path.abspath(vcf_file)
+    vcf_dir_name = os.path.dirname(vcf_file)
+    vcf_file_name = vcf_file_path.split("/")[-1]
+    vcf_file_extension = (".").join(vcf_file_name.split(".")[2:])
 
-#print(args)
+    for sample_name in sample_list:
+        output_vcf_name = sample_name + "." + vcf_file_extension
+        output_vcf_file = os.path.join(vcf_dir_name, output_vcf_name)
+        cmd = ["gatk", "SelectVariants", 
+        "--variant", vcf_file,
+        "--sample-name", sample_name,
+        "--exclude-non-variants",
+        "--output", output_vcf_file]
 
-#picard_markdup(args)
-#picard_dictionary(args)
-#samtools_faidx(args)
-#haplotype_caller(args, recalibrate=True, ploidy=1, bamout=False, forceactive=False)
-#call_variants(args, recalibrate=True)
-
-#out = args.output
-#sample = args.sample
-#raw_vcf = out + "/VCF_recal/" + sample + ".raw.vcf"
-#select_variants(raw_vcf, select_type='SNP') #select_variants(raw_vcf, select_type='INDEL')
-
-#selected_vcf = out + "/VCF_recal/" + sample + ".snp.vcf"
-#hard_filter(selected_vcf, select_type='SNP')
-
-#select_pass("/home/laura/ANALYSIS/Lofreq/coinfection_italy/VCF_recal/coinfection_italy.cohort.snp.hf.vcf")
-
-
-#Filter highest quality
-#Use it to recalibrate (BaseRecalibrator and ApplyBQSR in one function)
-
-#python bam_recall.py -b  Bam/AL14621.rg.sorted.bam -r ../references/NC_000962.3.fasta -o .
-#python bam_recall.py -b /home/pedro/analysis/Mixed/Bam/1mixed.rg.sorted.bam -r ../references/NC_000962.3.fasta -o /home/pedro/analysis/Mixed
+        execute_subprocess(cmd)

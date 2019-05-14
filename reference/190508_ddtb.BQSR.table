@@ -1,4 +1,5 @@
 #gatk IndexFeatureFile --feature-file 190508_ddtb.BQSR.table
+#https://software.broadinstitute.org/gatk/documentation/tooldocs/3.7-0/org_broadinstitute_gatk_utils_codecs_table_TableCodec.php
 HEADER
 MTB_anc:31
 MTB_anc:71

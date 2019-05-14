@@ -12,7 +12,8 @@ from misc import check_file_exists, extract_sample, obtain_output_dir, check_cre
 from bbduk_trimmer import bbduk_trimming
 from pe_mapper import bwa_mapping, sam_to_index_bam
 from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplotype_caller, call_variants, \
-    select_variants, hard_filter, combine_gvcf, select_pass, select_pass_variants
+    select_variants, hard_filter, combine_gvcf, select_pass, select_pass_variants, recalibrate_bam, \
+    split_vcf_saples
 
 """
 =============================================================
@@ -100,6 +101,10 @@ print("%d samples will be analysed: %s" % (len(sample_list_F), ",".join(sample_l
 ######################################################################
 #####################START PIPELINE###################################
 ######################################################################
+output = os.path.abspath(args.output)
+group_name = output.split("/")[-1]
+
+print("\n\n" + BLUE + BOLD + "STARTING PIPELINE IN GROUP: " + group_name + END_FORMATTING)
 
 for r1_file, r2_file in zip(r1, r2):
     sample = extract_sample(r1_file, r2_file)
@@ -190,8 +195,8 @@ for r1_file, r2_file in zip(r1, r2):
             print(YELLOW + DIM + output_gvcfr_file + BOLD + " EXIST\nOmmiting Haplotype Call (Recall) for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Haplotype Calling (Recall) in sample " + sample + END_FORMATTING)
-            haplotype_caller(args, recalibrate=True, ploidy=2, bamout=False, forceactive=False)
-
+            haplotype_caller(args, recalibrate=True, ploidy=1, bamout=False, forceactive=False)
+"""
         ###############################################################################################################################################
         #############################FOR COMPARING PURPOSE#############################################################################################
         ###############################################################################################################################################
@@ -229,14 +234,14 @@ for r1_file, r2_file in zip(r1, r2):
         else:
             print(GREEN + "Hard Filtering Variants (Recall) in sample " + sample + END_FORMATTING)
             hard_filter(output_vcfsnpr_file, select_type='SNP')
-
+"""
 #ONCE ALL GVCF VARIANTS ARE CALLED, THEY ARE GATHERED AND FILTERED 
 # TO RECALIBRATE ORIGINAL MARKDUPPED BAM
 ######################################################################
 ##############START GROUP CALLING FOR RECALIBRATION###################
 ######################################################################
-group_name = args.output.split("/")[-1]
-print("\n" + WHITE_BG + "STARTING JOINT CALL FOR RECALIBATION IN GROUP: " + group_name + END_FORMATTING)
+group_name = output.split("/")[-1]
+print("\n\n" + BLUE + BOLD + "STARTING JOINT CALL FOR RECALIBATION IN GROUP: " + group_name + END_FORMATTING + "\n")
 
 #CALL VARIANTS 1/2 FOR HARD FILTERING AND RECALIBRATION
 #######################################################
@@ -290,9 +295,8 @@ else:
     print(GREEN + "Hard Filtering Variants (Recall-Group) in group " + group_name + END_FORMATTING)
     hard_filter(output_vcfsnpr_file, select_type='SNP')
     hard_filter(output_vcfindelr_file, select_type='INDEL')
-    select_pass("/home/laura/ANALYSIS/Lofreq/coinfection_italy/VCF_recal/coinfection_italy.cohort.snp.hf.vcf")
 
-#HARD FILTER VARIANTS 1/2 FOR RECALIBRATION #############
+#PASS FILTER VARIANTS 1/2 FOR RECALIBRATION #############
 #########################################################
 out_vcfhfsnppass_name = group_name + ".cohort.snp.hf.pass.vcf"
 out_vcfhfindelpass_name = group_name + ".cohort.indel.hf.pass.vcf"
@@ -311,28 +315,164 @@ else:
     ######################################################################
     ##############START RECALIBRATION AND FINAL CALL######################
     ######################################################################
-"""
+
+print("\n\n" + BLUE + BOLD + "STARTING RECALIBATION IN GROUP: " + group_name + END_FORMATTING)
+
 for r1_file, r2_file in zip(r1, r2):
     sample = extract_sample(r1_file, r2_file)
+    args.sample = sample
+    args.output = os.path.abspath(args.output)
+
     if sample in sample_list_F:
-        args.r1_file = r1_file
-        args.r2_file = r2_file
 
-        print("STARTING SAMPLE " + WHITE_BG + sample + END_FORMATTING)
+        print("\n" + WHITE_BG + "RECALIBRATION AND CALL ON SAMPLE: " + sample + END_FORMATTING)
 
-        ##############START PIPELINE#####################
+        ##############START BAM RECALIBRATION############
         #################################################
 
+        ################BQSR AND APPLY BQSR##################
+        #####################################################
+        out_bqsr_name = sample + ".bqsr.bam"
+        output_bqsr_file = os.path.join(out_map_dir, out_bqsr_name)
 
-        #INPUT ARGUMENTS
-        ################
-        check_file_exists(args.r1_file)
-        check_file_exists(args.r2_file)
+        if os.path.isfile(output_bqsr_file):
+            print(YELLOW + DIM + output_bqsr_file + BOLD + " EXIST\nOmmiting Recalibration for sample " + sample + END_FORMATTING)
+        else:
+            print(GREEN + "Recalibration in sample " + sample + END_FORMATTING)
+            recalibrate_bam(args, tb=True)
 
-        args.output = os.path.abspath(args.output)
-        check_create_dir(args.output)
+        #HAPLOTYPE CALL 1/2 FOR HARD FILTERING AND RECALIBRATION
+        #######################################################
+        out_gvcf_dir = os.path.join(args.output, "GVCF")
+        out_gvcf_name = sample + ".g.vcf"
+        output_gvcf_file = os.path.join(out_gvcf_dir, out_gvcf_name)
 
+        #args.input_bam = output_bqsr_file
+
+        if os.path.isfile(output_gvcf_file):
+            print(YELLOW + DIM + output_gvcf_file + BOLD + " EXIST\nOmmiting Haplotype Call for sample " + sample + END_FORMATTING)
+        else:
+            print(GREEN + "Haplotype Calling in sample " + sample + END_FORMATTING)
+            haplotype_caller(args, recalibrate=False, ploidy=1, bamout=False, forceactive=False)
+"""
+        ###############################################################################################################################################
+        #############################FOR COMPARING PURPOSE#############################################################################################
+        ###############################################################################################################################################
+
+        #CALL VARIANTS 2/2 FOR HARD FILTERING AND RECALIBRATION
+        #######################################################
+        out_vcf_dir = os.path.join(args.output, "VCF")
+        out_vcf_name = sample + ".raw.vcf"
+        output_vcf_file = os.path.join(out_vcf_dir, out_vcf_name)
+
+        if os.path.isfile(output_vcf_file):
+            print(YELLOW + DIM + output_vcf_file + BOLD + " EXIST\nOmmiting Variant Calling for sample " + sample + END_FORMATTING)
+        else:
+            print(GREEN + "Variant Calling in sample " + sample + END_FORMATTING)
+            call_variants(args, recalibrate=False, group=False)
+
+        #SELECT VARIANTS 2/2 FOR HARD FILTERING AND RECALIBRATION
+        #########################################################
+        out_vcfsnp_name = sample + ".snp.vcf"
+        output_vcfsnp_file = os.path.join(out_vcf_dir, out_vcfsnp_name)
+
+        if os.path.isfile(output_vcfsnp_file):
+            print(YELLOW + DIM + output_vcfsnp_file + BOLD + " EXIST\nOmmiting Variant Selection for sample " + sample + END_FORMATTING)
+        else:
+            print(GREEN + "Selecting Variants in sample " + sample + END_FORMATTING)
+            select_variants(output_vcf_file, select_type='SNP') #select_variants(output_vcfr_file, select_type='INDEL')
+
+        #HARD FILTER VARIANTS 2/2 FOR RECALIBRATION #############
+        #########################################################
+        out_vcfhfsnp_name = sample + ".snp.hf.vcf"
+        output_vcfhfsnp_file = os.path.join(out_vcf_dir, out_vcfhfsnp_name)
+
+        if os.path.isfile(output_vcfhfsnp_file):
+            print(YELLOW + DIM + output_vcfhfsnp_file + BOLD + " EXIST\nOmmiting Hard Filtering for sample " + sample + END_FORMATTING)
+        else:
+            print(GREEN + "Hard Filtering Variants in sample " + sample + END_FORMATTING)
+            hard_filter(output_vcfsnp_file, select_type='SNP')
+"""
+#ONCE ALL GVCF VARIANTS ARE CALLED, THEY ARE GATHERED AND FILTERED 
+# FOR FINAL CALLING
+######################################################################
+##############START GROUP CALLING FOR FINAL CALL######################
+######################################################################
+group_name = args.output.split("/")[-1]
+print("\n\n" + BLUE + BOLD + "STARTING JOINT CALL FOR FINAL CALL IN GROUP: " + group_name + END_FORMATTING + "\n")
+
+#CALL VARIANTS 2/2 FOR HARD FILTERING AND RECALIBRATION
+#######################################################
+out_gvcf_dir = os.path.join(args.output, "GVCF")
+out_gvcf_name = group_name + ".cohort.g.vcf"
+output_gvcf_file = os.path.join(out_gvcf_dir, out_gvcf_name)
+
+if os.path.isfile(output_gvcf_file):
+    print(YELLOW + DIM + output_gvcfr_file + BOLD + " EXIST\nOmmiting GVCF Combination for group " + group_name + END_FORMATTING)
+else:
+    print(GREEN + "GVCF Combination in group " + group_name + END_FORMATTING)
+    combine_gvcf(args, recalibrate=False)
+
+#CALL VARIANTS 2/2 FOR HARD FILTERING AND RECALIBRATION
+#######################################################
+out_vcf_dir = os.path.join(args.output, "VCF")
+out_vcf_name = group_name + ".cohort.raw.vcf"
+output_vcf_file = os.path.join(out_vcf_dir, out_vcf_name)
+
+if os.path.isfile(output_vcf_file):
+    print(YELLOW + DIM + output_vcf_file + BOLD + " EXIST\nOmmiting Variant Calling (Group) for group " + group_name + END_FORMATTING)
+else:
+    print(GREEN + "Variant Calling (Group) in group " + group_name + END_FORMATTING)
+    call_variants(args, recalibrate=False, group=True)
+
+#SELECT VARIANTS 2/2 FOR HARD FILTERING AND RECALIBRATION
+#########################################################
+out_vcfsnp_name = group_name + ".cohort.snp.vcf"
+out_vcfindel_name = group_name + ".cohort.indel.vcf"
+output_vcfsnp_file = os.path.join(out_vcf_dir, out_vcfsnp_name)
+output_vcfindel_file = os.path.join(out_vcf_dir, out_vcfindel_name)
+
+if os.path.isfile(output_vcfsnp_file) and os.path.isfile(output_vcfindel_file):
+    print(YELLOW + DIM + output_vcfsnp_file + BOLD + " EXIST\nOmmiting Variant Selection (Group) for group " + group_name + END_FORMATTING)
+else:
+    print(GREEN + "Selecting Variants (Group) in group " + group_name + END_FORMATTING)
+    select_variants(output_vcf_file, select_type='SNP')
+    select_variants(output_vcf_file, select_type='INDEL')
+
+#HARD FILTER VARIANTS 2/2 FOR RECALIBRATION #############
+#########################################################
+out_vcfhfsnp_name = group_name + ".cohort.snp.hf.vcf"
+out_vcfhfindel_name = group_name + ".cohort.indel.hf.vcf"
+output_vcfhfsnp_file = os.path.join(out_vcf_dir, out_vcfhfsnp_name)
+output_vcfhfindel_file = os.path.join(out_vcf_dir, out_vcfhfindel_name)
+
+
+if os.path.isfile(output_vcfhfsnp_file) and os.path.isfile(output_vcfhfindel_file):
+    print(YELLOW + DIM + output_vcfhfsnp_file + BOLD + " EXIST\nOmmiting Hard Filtering (Group) for group " + group_name + END_FORMATTING)
+else:
+    print(GREEN + "Hard Filtering Variants (Group) in group " + group_name + END_FORMATTING)
+    hard_filter(output_vcfsnp_file, select_type='SNP')
+    hard_filter(output_vcfindel_file, select_type='INDEL')
+
+
+#PASS FILTER VARIANTS 2/2 FOR RECALIBRATION #############
+#########################################################
+out_vcfhfsnppass_name = group_name + ".cohort.snp.hf.pass.vcf"
+out_vcfhfindelpass_name = group_name + ".cohort.indel.hf.pass.vcf"
+output_vcfhfsnppass_file = os.path.join(out_vcf_dir, out_vcfhfsnppass_name)
+output_vcfhfindelpass_file = os.path.join(out_vcf_dir, out_vcfhfindelpass_name)
+
+
+if os.path.isfile(output_vcfhfindelpass_file) and os.path.isfile(output_vcfhfsnppass_file):
+    print(YELLOW + DIM + output_vcfhfsnppass_file + BOLD + " EXIST\nOmmiting PASS Filtering (Group) for group " + group_name + END_FORMATTING)
+else:
+    print(GREEN + "PASS Filtering Variants (Group) in group " + group_name + END_FORMATTING)
+    select_pass_variants(output_vcfhfsnp_file)
+    select_pass_variants(output_vcfhfindel_file)
+
+split_vcf_saples(output_vcfhfsnppass_file)
 """
 
 #./snptb_runner.py -i /home/laura/ANALYSIS/Lofreq/coinfection_designed/raw -r reference/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_designed/TEST -s sample_list.txt
-#/home/laura/DEVELOP/SNPTB/snptb_runner.py -i /home/laura/RAW/Mixtas_Italia/ -r reference/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_italy/
+#/home/laura/DEVELOP/SNPTB/snptb_runner.py -i /home/laura/RAW/Mixtas_Italia/ -r /home/laura/DATABASES/REFERENCES/ancestorII/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_italy/
+"""
