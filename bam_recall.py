@@ -2,7 +2,6 @@
 
 import os
 import argparse
-#import argcomplete
 import subprocess
 from misc import check_file_exists, obtain_output_dir, check_create_dir, get_picard_path, execute_subprocess, check_remove_file
 
@@ -318,10 +317,11 @@ def hard_filter(selected_vcf, select_type='SNP'):
             "--filter-expression", "SOR > 3.0", "--filter-name", "SOR3",
             "--filter-expression", "FS > 60.0", "--filter-name", "FS60",
             "--filter-expression", "MQ < 40.0", "--filter-name", "MQ40",
-            "--filter-expression", "DP < 4", "--filter-name", "DP4",
+            "--filter-expression", "DP < 10", "--filter-name", "DP10",
             "--filter-expression", "MQRankSum < -12.5", "--filter-name", "MQRankSum-12.5",
             "--filter-expression", "ReadPosRankSum < -8.0", "--filter-name", "ReadPosRankSum-8",
             "--output", vcf_hard_filtered_output_file]
+
     elif select_type == "INDEL":
         extension = ".indel.hf.vcf"
         vcf_hard_filtered_output_file = selected_vcf_file_name + extension
@@ -373,7 +373,7 @@ def combine_gvcf(args, recalibrate=False):
     
     execute_subprocess(cmd)
 
-def select_pass_variants(raw_vcf):
+def select_pass_variants(raw_vcf, max_nocall=1):
     """
     Filter a vcf file. Output a vcf file with PASS positions adding a .pass to the output file
     Used since it creates the neccesasary vcf index
@@ -393,8 +393,9 @@ def select_pass_variants(raw_vcf):
     "--variant", input_vcf,
     "--exclude-filtered",
     "--remove-unused-alternates",
+    "--max-nocall-number", str(max_nocall),
     "--output", vcf_selected_output_file]
-
+    
     execute_subprocess(cmd)
 
 def select_pass(raw_vcf):

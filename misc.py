@@ -147,8 +147,8 @@ def extract_read_list(input_dir):
         for name in files:
             filename = os.path.join(root, name)
             is_fasta = re.match(r'.*\.fast[aq](\.gz)*',filename)
-            r1 = re.match(r'.*(_R1_|_1_|_R1).*\.fast[aq](\.gz)*',filename)
-            r2 = re.match(r'.*(_R2_|_2_|_R2).*\.fast[aq](\.gz)*',filename)
+            r1 = re.match(r'.*(_R1_|_1|_1_|_R1).*\.fast[aq](\.gz)*',filename)
+            r2 = re.match(r'.*(_R2_|_2|_2_|_R2).*\.fast[aq](\.gz)*',filename)
 
             if is_fasta:
                 if r1:

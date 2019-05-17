@@ -14,6 +14,7 @@ from pe_mapper import bwa_mapping, sam_to_index_bam
 from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplotype_caller, call_variants, \
     select_variants, hard_filter, combine_gvcf, select_pass, select_pass_variants, recalibrate_bam, \
     split_vcf_saples
+from vcf_process import vcf_consensus_filter
 
 """
 =============================================================
@@ -471,8 +472,32 @@ else:
     select_pass_variants(output_vcfhfindel_file)
 
 split_vcf_saples(output_vcfhfsnppass_file)
-"""
 
+
+
+for r1_file, r2_file in zip(r1, r2):
+    sample = extract_sample(r1_file, r2_file)
+    args.sample = sample
+    args.output = os.path.abspath(args.output)
+
+    if sample in sample_list_F:
+
+        print("\n" + WHITE_BG + "FINAL FILTERING IN SAMPLE " + sample + END_FORMATTING)
+
+        ################FINAL VCF FILTERING##################
+        #####################################################
+        out_final_name = sample + ".snp.hf.pass.final.vcf"
+        in_final_name = sample + ".snp.hf.pass.vcf"
+        output_final_vcf = os.path.join(out_vcf_dir, out_final_name)
+        in_final_vcf = os.path.join(out_vcf_dir, in_final_name)
+
+        if os.path.isfile(output_final_vcf):
+            print(YELLOW + DIM + output_final_vcf + BOLD + " EXIST\nOmmiting Final filter for sample " + sample + END_FORMATTING)
+        else:
+            print(GREEN + "Final filter in sample " + sample + END_FORMATTING)
+            vcf_consensus_filter(in_final_vcf, distance=10, AF=0.75)
+
+"""
 #./snptb_runner.py -i /home/laura/ANALYSIS/Lofreq/coinfection_designed/raw -r reference/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_designed/TEST -s sample_list.txt
 #/home/laura/DEVELOP/SNPTB/snptb_runner.py -i /home/laura/RAW/Mixtas_Italia/ -r /home/laura/DATABASES/REFERENCES/ancestorII/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_italy/
 """
