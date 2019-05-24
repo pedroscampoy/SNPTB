@@ -1,4 +1,3 @@
-#!/usr/bin/python3
 #!/usr/bin/env python
 
 import os
@@ -52,25 +51,28 @@ def get_arguments():
 
     parser = argparse.ArgumentParser(prog = 'snptb.py', description= 'Pipeline to call variants (SNVs) with any non model organism. Specialised in Mycobacterium Tuberculosis')
     
-    input_group = parser.add_argument_group('Input', 'Required fiparameters')
+    input_group = parser.add_argument_group('Input', 'Input parameters')
 
-    input_group.add_argument('-i', '--input', dest="input_dir", metavar="input_directory", type=str, required=True, help='Input directory containing all fast[aq] files')
-    input_group.add_argument('-r', '--reference', metavar="reference", type=str, required=True, help='File to map against')
+    input_group.add_argument('-i', '--input', dest="input_dir", metavar="input_directory", type=str, required=True, help='REQUIRED.Input directory containing all fast[aq] files')
+    input_group.add_argument('-r', '--reference', metavar="reference", type=str, required=True, help='REQUIRED. File to map against')
     input_group.add_argument('-s', '--sample', metavar="sample", type=str, required=False, help='Sample to identify further files')
 
     output_group = parser.add_argument_group('Output', 'Required parameter to output results')
 
-    output_group.add_argument('-o', '--output', type=str, required=True, help='Output directory to extract all results')
-    output_group.add_argument('-S', '--sample_list', type=str, required=False, help='Sample name to handle output files ')
+    output_group.add_argument('-o', '--output', type=str, required=True, help='REQUIRED. Output directory to extract all results')
+    output_group.add_argument('-S', '--sample_list', type=str, required=False, help='Sample names to analyse only in the file supplied')
 
     trimming_group = parser.add_argument_group('Trimming parameters', 'parameters for diferent triming conditions')
 
     trimming_group.add_argument('-H', '--hdist', type=str, required=False, help='Set hdist parameter, default 2')
     trimming_group.add_argument('-k', '--kmer', type=str, required=False, help='Set k parameter, default 21')
 
+    gatk_group = parser.add_argument_group('GATK parameters', 'parameters for diferent variant calling')
+
+    gatk_group.add_argument('-p', '--ploidy', type=str, required=False, default=1, help='Set ploidy when HC call, default 1')
+
     params_group = parser.add_argument_group('Parameters', 'parameters for diferent stringent conditions')
 
-    
     params_group.add_argument('-T', '--threads', type=str, dest = "threads", required=False, default=4, help='Threads to use')
     params_group.add_argument('-M', '--memory', type=str, dest = "memory", required=False, default=8, help='MAx memory to use')
 
@@ -196,7 +198,7 @@ for r1_file, r2_file in zip(r1, r2):
             print(YELLOW + DIM + output_gvcfr_file + BOLD + " EXIST\nOmmiting Haplotype Call (Recall) for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Haplotype Calling (Recall) in sample " + sample + END_FORMATTING)
-            haplotype_caller(args, recalibrate=True, ploidy=1, bamout=False, forceactive=False)
+            haplotype_caller(args, recalibrate=True, ploidy=args.ploidy, bamout=False, forceactive=False)
 """
         ###############################################################################################################################################
         #############################FOR COMPARING PURPOSE#############################################################################################
@@ -354,7 +356,7 @@ for r1_file, r2_file in zip(r1, r2):
             print(YELLOW + DIM + output_gvcf_file + BOLD + " EXIST\nOmmiting Haplotype Call for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Haplotype Calling in sample " + sample + END_FORMATTING)
-            haplotype_caller(args, recalibrate=False, ploidy=1, bamout=False, forceactive=False)
+            haplotype_caller(args, recalibrate=False, ploidy=args.ploidy, bamout=False, forceactive=False)
 """
         ###############################################################################################################################################
         #############################FOR COMPARING PURPOSE#############################################################################################

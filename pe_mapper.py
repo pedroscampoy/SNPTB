@@ -1,4 +1,4 @@
-# PYTHON_ARGCOMPLETE_OK
+#!/usr/bin/env python
 
 import os
 import gzip
@@ -187,7 +187,7 @@ def sam_to_index_bam(args):
     sample_name = sample + ".sam"
     input_sam_path = os.path.join(output_dir, sample_name)
 
-    input_name = os.path.basename(input_sam_path).rstrip(".sam")
+    input_name = (".").join(os.path.basename(input_sam_path).split(".")[:-1])
 
     output_bam_name = input_name + ".bam"
     output_bam_path = os.path.join(output_dir, output_bam_name)

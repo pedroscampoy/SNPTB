@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import os
 import sys
 import argparse
@@ -7,8 +9,94 @@ import re
 import subprocess
 from misc import check_file_exists, obtain_output_dir, check_create_dir, get_picard_path, execute_subprocess, check_remove_file
 
+def calculate_ALT_AD(row):
+    if row.len_AD > 2:
+        split_AD = row.AD.split(",")[1:]
+        max_AD = max(split_AD)
+        #max_index = split_AD.index(max(split_AD))
+        return max_AD
+    else:
+        ALT_AD = row.AD.split(",")[1]
+        return ALT_AD
+
 
 def import_VCF42_to_pandas(vcf_file, sep='\t'):
+    """
+    Script to read vcf 4.2
+    - now handle correct allele frequency calculated by summing REF reads + ALT reads instead from DP parameter
+    - now retrieve the largest read number for ALT allele frequency in case is a heterozygous SNP (depends on calculate_ALT_AD())
+    - now uses dataframe.iterrows() instead dataframe.index
+    """
+    header_lines = 0
+    with open(vcf_file) as f:
+        first_line = f.readline().strip()
+        next_line = f.readline().strip()
+        while next_line.startswith("##"):
+            header_lines = header_lines + 1
+            #print(next_line)
+            next_line = f.readline()
+    
+    if first_line.endswith('VCFv4.2'):
+        
+        #Use first line as header
+        dataframe = pd.read_csv(vcf_file, sep=sep, skiprows=[header_lines], header=header_lines)
+        sample = dataframe.columns[-1]
+        dataframe.rename(columns={sample:'sample'}, inplace=True)
+        
+        for index, data_row in dataframe.iterrows():
+            info_fields = re.findall(r';*([a-zA-Z]{1,20})=', data_row.INFO)
+            info_values = re.findall(r'-?\d+\.?\d*e?[+-]?\d{0,2}', data_row.INFO)
+            
+            format_fields = data_row['FORMAT'].split(":")
+            format_values = data_row['sample'].split(":")
+                                    
+            for ifield, ivalue in zip(info_fields,info_values):
+                dataframe.loc[index,ifield] = ivalue
+                
+            for ffield, fvalue in zip(format_fields,format_values):
+                dataframe.loc[index,ffield] = fvalue
+            
+            
+        dataframe.rename(columns={'AF':'af'}, inplace=True)
+        
+        dataframe['len_AD'] = dataframe['AD'].str.split(",").str.len()
+        dataframe['REF_AD'] = dataframe['AD'].str.split(",").str[0]
+        #dataframe['ALT_AD'] = dataframe['AD'].str.split(",").str[1]
+        dataframe['ALT_AD'] = dataframe.apply(calculate_ALT_AD, axis=1)
+
+                
+        to_float = ['QUAL', 'AC', 'af', 'AN', 'BaseQRankSum', 'DP', 'ExcessHet', 'FS',
+       'MLEAC', 'MLEAF', 'MQ', 'MQRankSum', 'QD', 'ReadPosRankSum', 'SOR','GQ','ALT_AD', 'REF_AD']
+        
+        to_int = ['POS', 'len_AD']
+        
+        to_str = ['#CHROM','REF','ALT', 'FILTER']
+        
+        for column in dataframe.columns:
+            if column in to_float:
+                dataframe[column] = dataframe[column].astype(float)
+                
+        for column in dataframe.columns:
+            if column in to_int:
+                dataframe[column] = dataframe[column].astype(int)
+                
+        for column in dataframe.columns:
+            if column in to_str:
+                dataframe[column] = dataframe[column].astype(str)
+                
+        dataframe['dp'] = (dataframe['REF_AD'] + dataframe['ALT_AD'])
+        dataframe['aF'] = dataframe['REF_AD']/dataframe['dp']
+        dataframe['AF'] = dataframe['ALT_AD']/dataframe['dp']
+        
+
+                
+    else:
+        print("This vcf file is not v4.2")
+        sys.exit(1)
+           
+    return dataframe
+
+def import_VCF42_to_pandas_legacy(vcf_file, sep='\t'):
     header_lines = 0
     with open(vcf_file) as f:
         first_line = f.readline().strip()
@@ -41,8 +129,10 @@ def import_VCF42_to_pandas(vcf_file, sep='\t'):
             #    print(format_values[1].split(","), index)
             #    print(dataframe.iloc[index])
         dataframe.rename(columns={'AF':'af'}, inplace=True)
-        dataframe['REF_AD'] = dataframe['AD'].str.split(",").str[-2:].str[0]
-        dataframe['ALT_AD'] = dataframe['AD'].str.split(",").str[-2:].str[1]
+        dataframe['REF_AD'] = dataframe['AD'].str.split(",").str[0]
+        dataframe['ALT_AD'] = dataframe['AD'].str.split(",").str[1]
+        # dataframe['REF_AD'] = dataframe['AD'].str.split(",").str[-2:].str[0] #When there is a minoritary third allele it places third in AD???
+        #dataframe['ALT_AD'] = dataframe['AD'].str.split(",").str[-2:].str[1]
         
         to_float = ['QUAL', 'AC', 'af', 'AN', 'BaseQRankSum', 'DP', 'ExcessHet', 'FS',
        'MLEAC', 'MLEAF', 'MQ', 'MQRankSum', 'QD', 'ReadPosRankSum', 'SOR','GQ','ALT_AD', 'REF_AD']
@@ -56,9 +146,9 @@ def import_VCF42_to_pandas(vcf_file, sep='\t'):
         for column in dataframe.columns:
             if column in to_int:
                 dataframe[column] = dataframe[column].astype(int)
-        
-        dataframe['aF'] = dataframe['REF_AD']/(dataframe['REF_AD'] + dataframe['ALT_AD'])
-        dataframe['AF'] = dataframe['ALT_AD']/(dataframe['REF_AD'] + dataframe['ALT_AD'])
+        dataframe['dp'] = (dataframe['REF_AD'] + dataframe['ALT_AD'])
+        dataframe['aF'] = dataframe['REF_AD']/dataframe['dp']
+        dataframe['AF'] = dataframe['ALT_AD']/dataframe['dp']
 
                 
     else:
@@ -68,6 +158,10 @@ def import_VCF42_to_pandas(vcf_file, sep='\t'):
     return dataframe
 
 def add_snp_distance(vcf_df):
+    """
+    Calculate distance to the closest left and rigth SNP using a vcf imported as datafame
+    Is adapted to M. tuberculosis since it uses 4411532 as sequence lenght
+    """
     for index in vcf_df.index.values:
         if index == 0:
             vcf_df.loc[index,'snp_left_distance'] = vcf_df.loc[index,'POS'] - 0
@@ -250,7 +344,13 @@ def filter_vcf_list(raw_vcf, list_pos, name_out):
 
 
 
-def vcf_consensus_filter(vcf_file, distance=10, AF=0.75):
+def vcf_consensus_filter(vcf_file, distance=15, AF=0.75, QD=15):
+    """
+    Apply custom filter to individual vcf based on:
+    AF
+    snp distance
+    QD
+    """
     df_vcf = import_VCF42_to_pandas(vcf_file)
 
     vcf_path = os.path.abspath(vcf_file)
@@ -278,6 +378,8 @@ def vcf_consensus_filter(vcf_file, distance=10, AF=0.75):
     list_positions_to_filter = df_vcf['POS'][((df_vcf.AF < AF) | 
                                 (df_vcf.snp_left_distance <= distance)|
                                 (df_vcf.snp_right_distance <= distance)|
+                                (df_vcf.AF <= 0.0)|
+                                (df_vcf.QD <= QD)|
                                 (df_vcf.Is_repeat == True))].tolist()
     
     final_vcf_name = tab_name + extend_final

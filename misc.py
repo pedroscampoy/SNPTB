@@ -61,13 +61,13 @@ def extract_sample(R1_file, R2_file):
     
     if long_suffix:
         match = long_suffix.group()
-        sample_name = sample_name_R.rstrip(match)
+        sample_name = sample_name_R.split(match)[0]
     elif short_suffix:
         match = short_suffix.group()
-        sample_name = sample_name_R.rstrip(match)
+        sample_name = sample_name_R.split(match)[0]
     elif bar_suffix:
         match = bar_suffix.group()
-        sample_name = sample_name_R.rstrip(match)
+        sample_name = sample_name_R.split(match)[0]
     else:
         sample_name = sample_name_R
 
@@ -125,7 +125,7 @@ def execute_subprocess(cmd):
     try:
         command = subprocess.run(cmd , stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if command.returncode == 0:
-            print(GREEN + BOLD + "Program %s successfully executed" % prog + END_FORMATTING)
+            print(GREEN + "Program %s successfully executed" % prog + END_FORMATTING)
         else:
             print (RED + BOLD + "Command %s FAILED\n" % prog + END_FORMATTING
                 + BOLD + "WITH PARAMETERS: " + END_FORMATTING + " ".join(param) + "\n"
