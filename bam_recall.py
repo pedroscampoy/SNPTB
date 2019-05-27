@@ -391,9 +391,9 @@ def select_pass_variants(raw_vcf, max_nocall=0):
 
     cmd = ["gatk", "SelectVariants", 
     "--variant", input_vcf,
+    "--max-nocall-number", str(max_nocall),
     "--exclude-filtered",
     "--remove-unused-alternates",
-    "--max-nocall-number", str(max_nocall),
     "--output", vcf_selected_output_file]
     
     execute_subprocess(cmd)
