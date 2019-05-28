@@ -117,7 +117,7 @@ def picard_markdup(args):
     #samtools index: samtools index $output_dir/$sample".sorted.bam"
     #subprocess.run(["samtools", "index", output_markdup_sorted], 
     #    stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-    
+    check_remove_file(input_bam)
     check_remove_file(output_markdup)
 
 def picard_dictionary(args):

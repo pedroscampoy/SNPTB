@@ -7,7 +7,7 @@ import argparse
 #import argcomplete
 import subprocess
 from misc import check_file_exists, extract_sample, obtain_output_dir, check_create_dir, execute_subprocess, \
-    extract_read_list, file_to_list
+    extract_read_list, file_to_list, get_coverage, obtain_group_cov_stats
 from bbduk_trimmer import bbduk_trimming
 from pe_mapper import bwa_mapping, sam_to_index_bam
 from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplotype_caller, call_variants, \
@@ -109,6 +109,14 @@ group_name = output.split("/")[-1]
 
 print("\n\n" + BLUE + BOLD + "STARTING PIPELINE IN GROUP: " + group_name + END_FORMATTING)
 
+
+#PREPARE REFERENCE FOR MAPPING + FAI + DICT #########
+#####################################################
+
+picard_dictionary(args)
+samtools_faidx(args)
+
+
 for r1_file, r2_file in zip(r1, r2):
     sample = extract_sample(r1_file, r2_file)
     args.sample = sample
@@ -144,7 +152,7 @@ for r1_file, r2_file in zip(r1, r2):
         output_trimming_file_r2 = os.path.join(out_trim_dir, out_trim_name_r2)
         
         if os.path.isfile(output_trimming_file_r1) and os.path.isfile(output_trimming_file_r2):
-            print(YELLOW + DIM + output_trimming_file_r1 + BOLD + " EXIST\nOmmiting Trimming for sample " + sample + END_FORMATTING)
+            print(YELLOW + DIM + output_trimming_file_r1 + " EXIST\nOmmiting Trimming for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Trimming sample " + sample + END_FORMATTING)
             bbduk_trimming(args)
@@ -159,18 +167,12 @@ for r1_file, r2_file in zip(r1, r2):
         args.r2_file = output_trimming_file_r2
 
         if os.path.isfile(output_map_file):
-            print(YELLOW + DIM + output_map_file + BOLD + " EXIST\nOmmiting Mapping for sample " + sample + END_FORMATTING)
+            print(YELLOW + DIM + output_map_file + " EXIST\nOmmiting Mapping for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Mapping sample " + sample + END_FORMATTING)
             print("R1: " + output_trimming_file_r1 + "\nR2: " + output_trimming_file_r2 + "\nReference: " + args.reference)
             bwa_mapping(args)
             sam_to_index_bam(args)
-
-        #PREPARE REFERENCE FOR MAPPING + FAI + DICT #########
-        #####################################################
-
-        picard_dictionary(args)
-        samtools_faidx(args)
 
         #MARK DUPLICATES WITH PICARDTOOLS ###################
         #####################################################
@@ -182,12 +184,24 @@ for r1_file, r2_file in zip(r1, r2):
         args.input_bam = output_map_file
 
         if os.path.isfile(output_markdup_file):
-            print(YELLOW + DIM + output_markdup_file + BOLD + " EXIST\nOmmiting Duplucate Mark for sample " + sample + END_FORMATTING)
+            print(YELLOW + DIM + output_markdup_file + " EXIST\nOmmiting Duplucate Mark for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Marking Dupes in sample " + sample + END_FORMATTING)
             print("Input Bam: " + args.input_bam)
             picard_markdup(args)
         
+        #CALCULATE COVERAGE FOR EACH POSITION##################
+        #######################################################
+        out_cov_dir = os.path.join(args.output, "Coverage")
+        out_cov_name = sample + ".cov"
+        output_cov_file = os.path.join(out_cov_dir, out_cov_name)
+
+        if os.path.isfile(output_cov_file):
+            print(YELLOW + DIM + output_cov_file + " EXIST\nOmmiting coverage calculation for sample " + sample + END_FORMATTING)
+        else:
+            print(GREEN + "Calculating coverage in sample " + sample + END_FORMATTING)
+            get_coverage(args, output_markdup_file, output_fmt="-d")
+
         #HAPLOTYPE CALL 1/2 FOR HARD FILTERING AND RECALIBRATION
         #######################################################
         out_gvcfr_dir = os.path.join(args.output, "GVCF_recal")
@@ -195,7 +209,7 @@ for r1_file, r2_file in zip(r1, r2):
         output_gvcfr_file = os.path.join(out_gvcfr_dir, out_gvcfr_name)
 
         if os.path.isfile(output_gvcfr_file):
-            print(YELLOW + DIM + output_gvcfr_file + BOLD + " EXIST\nOmmiting Haplotype Call (Recall) for sample " + sample + END_FORMATTING)
+            print(YELLOW + DIM + output_gvcfr_file + " EXIST\nOmmiting Haplotype Call (Recall) for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Haplotype Calling (Recall) in sample " + sample + END_FORMATTING)
             haplotype_caller(args, recalibrate=True, ploidy=args.ploidy, bamout=False, forceactive=False)
@@ -211,7 +225,7 @@ for r1_file, r2_file in zip(r1, r2):
         output_vcfr_file = os.path.join(out_vcfr_dir, out_vcfr_name)
 
         if os.path.isfile(output_vcfr_file):
-            print(YELLOW + DIM + output_vcfr_file + BOLD + " EXIST\nOmmiting Variant Calling (Recall) for sample " + sample + END_FORMATTING)
+            print(YELLOW + DIM + output_vcfr_file + " EXIST\nOmmiting Variant Calling (Recall) for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Variant Calling (Recall) in sample " + sample + END_FORMATTING)
             call_variants(args, recalibrate=True, group=False)
@@ -222,7 +236,7 @@ for r1_file, r2_file in zip(r1, r2):
         output_vcfsnpr_file = os.path.join(out_vcfr_dir, out_vcfsnpr_name)
 
         if os.path.isfile(output_vcfsnpr_file):
-            print(YELLOW + DIM + output_vcfsnpr_file + BOLD + " EXIST\nOmmiting Variant Selection (Recall) for sample " + sample + END_FORMATTING)
+            print(YELLOW + DIM + output_vcfsnpr_file + " EXIST\nOmmiting Variant Selection (Recall) for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Selecting Variants (Recall) in sample " + sample + END_FORMATTING)
             select_variants(output_vcfr_file, select_type='SNP') #select_variants(output_vcfr_file, select_type='INDEL')
@@ -233,7 +247,7 @@ for r1_file, r2_file in zip(r1, r2):
         output_vcfhfsnpr_file = os.path.join(out_vcfr_dir, out_vcfhfsnpr_name)
 
         if os.path.isfile(output_vcfhfsnpr_file):
-            print(YELLOW + DIM + output_vcfhfsnpr_file + BOLD + " EXIST\nOmmiting Hard Filtering (Recall) for sample " + sample + END_FORMATTING)
+            print(YELLOW + DIM + output_vcfhfsnpr_file + " EXIST\nOmmiting Hard Filtering (Recall) for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Hard Filtering Variants (Recall) in sample " + sample + END_FORMATTING)
             hard_filter(output_vcfsnpr_file, select_type='SNP')
@@ -246,6 +260,20 @@ for r1_file, r2_file in zip(r1, r2):
 group_name = output.split("/")[-1]
 print("\n\n" + BLUE + BOLD + "STARTING JOINT CALL FOR RECALIBATION IN GROUP: " + group_name + END_FORMATTING + "\n")
 
+
+
+#GROUP COVERAGE SUMMARY STATS##########################
+#######################################################
+out_covg_dir = os.path.join(args.output, "Coverage")
+out_covg_name = group_name + ".covegare.tab"
+output_covg_file = os.path.join(out_covg_dir, out_covg_name)
+
+if os.path.isfile(output_covg_file):
+    print(YELLOW + DIM + output_covg_file + " EXIST\nOmmiting group coverage calculation for group " + group_name + END_FORMATTING)
+else:
+    print(GREEN + "Group coverage stats in group " + group_name + END_FORMATTING)
+    obtain_group_cov_stats(out_covg_dir)
+
 #CALL VARIANTS 1/2 FOR HARD FILTERING AND RECALIBRATION
 #######################################################
 out_gvcfr_dir = os.path.join(args.output, "GVCF_recal")
@@ -253,7 +281,7 @@ out_gvcfr_name = group_name + ".cohort.g.vcf"
 output_gvcfr_file = os.path.join(out_gvcfr_dir, out_gvcfr_name)
 
 if os.path.isfile(output_gvcfr_file):
-    print(YELLOW + DIM + output_gvcfr_file + BOLD + " EXIST\nOmmiting GVCF Combination (Recall) for group " + group_name + END_FORMATTING)
+    print(YELLOW + DIM + output_gvcfr_file + " EXIST\nOmmiting GVCF Combination (Recall) for group " + group_name + END_FORMATTING)
 else:
     print(GREEN + "GVCF Combination (Recall) in group " + group_name + END_FORMATTING)
     combine_gvcf(args, recalibrate=True)
@@ -265,7 +293,7 @@ out_vcfr_name = group_name + ".cohort.raw.vcf"
 output_vcfr_file = os.path.join(out_vcfr_dir, out_vcfr_name)
 
 if os.path.isfile(output_vcfr_file):
-    print(YELLOW + DIM + output_vcfr_file + BOLD + " EXIST\nOmmiting Variant Calling (Recall-Group) for group " + group_name + END_FORMATTING)
+    print(YELLOW + DIM + output_vcfr_file + " EXIST\nOmmiting Variant Calling (Recall-Group) for group " + group_name + END_FORMATTING)
 else:
     print(GREEN + "Variant Calling (Recall-Group) in group " + group_name + END_FORMATTING)
     call_variants(args, recalibrate=True, group=True)
@@ -278,7 +306,7 @@ output_vcfsnpr_file = os.path.join(out_vcfr_dir, out_vcfsnpr_name)
 output_vcfindelr_file = os.path.join(out_vcfr_dir, out_vcfindelr_name)
 
 if os.path.isfile(output_vcfsnpr_file) and os.path.isfile(output_vcfindelr_file):
-    print(YELLOW + DIM + output_vcfsnpr_file + BOLD + " EXIST\nOmmiting Variant Selection (Recall-Group) for group " + group_name + END_FORMATTING)
+    print(YELLOW + DIM + output_vcfsnpr_file + " EXIST\nOmmiting Variant Selection (Recall-Group) for group " + group_name + END_FORMATTING)
 else:
     print(GREEN + "Selecting Variants (Recall-Group) in group " + group_name + END_FORMATTING)
     select_variants(output_vcfr_file, select_type='SNP') #select_variants(output_vcfr_file, select_type='INDEL')
@@ -293,7 +321,7 @@ output_vcfhfindelr_file = os.path.join(out_vcfr_dir, out_vcfhfindelr_name)
 
 
 if os.path.isfile(output_vcfhfsnpr_file) and os.path.isfile(output_vcfhfindelr_file):
-    print(YELLOW + DIM + output_vcfhfsnpr_file + BOLD + " EXIST\nOmmiting Hard Filtering (Recall-Group) for group " + group_name + END_FORMATTING)
+    print(YELLOW + DIM + output_vcfhfsnpr_file + " EXIST\nOmmiting Hard Filtering (Recall-Group) for group " + group_name + END_FORMATTING)
 else:
     print(GREEN + "Hard Filtering Variants (Recall-Group) in group " + group_name + END_FORMATTING)
     hard_filter(output_vcfsnpr_file, select_type='SNP')
@@ -308,7 +336,7 @@ output_vcfhfindelpass_file = os.path.join(out_vcfr_dir, out_vcfhfindelpass_name)
 
 
 if os.path.isfile(output_vcfhfsnpr_file) and os.path.isfile(output_vcfhfsnppass_file):
-    print(YELLOW + DIM + output_vcfhfsnppass_file + BOLD + " EXIST\nOmmiting PASS Filtering (Recall-Group) for group " + group_name + END_FORMATTING)
+    print(YELLOW + DIM + output_vcfhfsnppass_file + " EXIST\nOmmiting PASS Filtering (Recall-Group) for group " + group_name + END_FORMATTING)
 else:
     print(GREEN + "PASS Filtering Variants (Recall-Group) in group " + group_name + END_FORMATTING)
     select_pass_variants(output_vcfhfsnpr_file)
@@ -339,7 +367,7 @@ for r1_file, r2_file in zip(r1, r2):
         output_bqsr_file = os.path.join(out_map_dir, out_bqsr_name)
 
         if os.path.isfile(output_bqsr_file):
-            print(YELLOW + DIM + output_bqsr_file + BOLD + " EXIST\nOmmiting Recalibration for sample " + sample + END_FORMATTING)
+            print(YELLOW + DIM + output_bqsr_file + " EXIST\nOmmiting Recalibration for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Recalibration in sample " + sample + END_FORMATTING)
             recalibrate_bam(args, tb=True)
@@ -353,7 +381,7 @@ for r1_file, r2_file in zip(r1, r2):
         #args.input_bam = output_bqsr_file
 
         if os.path.isfile(output_gvcf_file):
-            print(YELLOW + DIM + output_gvcf_file + BOLD + " EXIST\nOmmiting Haplotype Call for sample " + sample + END_FORMATTING)
+            print(YELLOW + DIM + output_gvcf_file + " EXIST\nOmmiting Haplotype Call for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Haplotype Calling in sample " + sample + END_FORMATTING)
             haplotype_caller(args, recalibrate=False, ploidy=args.ploidy, bamout=False, forceactive=False)
@@ -369,7 +397,7 @@ for r1_file, r2_file in zip(r1, r2):
         output_vcf_file = os.path.join(out_vcf_dir, out_vcf_name)
 
         if os.path.isfile(output_vcf_file):
-            print(YELLOW + DIM + output_vcf_file + BOLD + " EXIST\nOmmiting Variant Calling for sample " + sample + END_FORMATTING)
+            print(YELLOW + DIM + output_vcf_file + " EXIST\nOmmiting Variant Calling for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Variant Calling in sample " + sample + END_FORMATTING)
             call_variants(args, recalibrate=False, group=False)
@@ -380,7 +408,7 @@ for r1_file, r2_file in zip(r1, r2):
         output_vcfsnp_file = os.path.join(out_vcf_dir, out_vcfsnp_name)
 
         if os.path.isfile(output_vcfsnp_file):
-            print(YELLOW + DIM + output_vcfsnp_file + BOLD + " EXIST\nOmmiting Variant Selection for sample " + sample + END_FORMATTING)
+            print(YELLOW + DIM + output_vcfsnp_file + " EXIST\nOmmiting Variant Selection for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Selecting Variants in sample " + sample + END_FORMATTING)
             select_variants(output_vcf_file, select_type='SNP') #select_variants(output_vcfr_file, select_type='INDEL')
@@ -391,7 +419,7 @@ for r1_file, r2_file in zip(r1, r2):
         output_vcfhfsnp_file = os.path.join(out_vcf_dir, out_vcfhfsnp_name)
 
         if os.path.isfile(output_vcfhfsnp_file):
-            print(YELLOW + DIM + output_vcfhfsnp_file + BOLD + " EXIST\nOmmiting Hard Filtering for sample " + sample + END_FORMATTING)
+            print(YELLOW + DIM + output_vcfhfsnp_file + " EXIST\nOmmiting Hard Filtering for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Hard Filtering Variants in sample " + sample + END_FORMATTING)
             hard_filter(output_vcfsnp_file, select_type='SNP')
@@ -411,7 +439,7 @@ out_gvcf_name = group_name + ".cohort.g.vcf"
 output_gvcf_file = os.path.join(out_gvcf_dir, out_gvcf_name)
 
 if os.path.isfile(output_gvcf_file):
-    print(YELLOW + DIM + output_gvcfr_file + BOLD + " EXIST\nOmmiting GVCF Combination for group " + group_name + END_FORMATTING)
+    print(YELLOW + DIM + output_gvcfr_file + " EXIST\nOmmiting GVCF Combination for group " + group_name + END_FORMATTING)
 else:
     print(GREEN + "GVCF Combination in group " + group_name + END_FORMATTING)
     combine_gvcf(args, recalibrate=False)
@@ -423,7 +451,7 @@ out_vcf_name = group_name + ".cohort.raw.vcf"
 output_vcf_file = os.path.join(out_vcf_dir, out_vcf_name)
 
 if os.path.isfile(output_vcf_file):
-    print(YELLOW + DIM + output_vcf_file + BOLD + " EXIST\nOmmiting Variant Calling (Group) for group " + group_name + END_FORMATTING)
+    print(YELLOW + DIM + output_vcf_file + " EXIST\nOmmiting Variant Calling (Group) for group " + group_name + END_FORMATTING)
 else:
     print(GREEN + "Variant Calling (Group) in group " + group_name + END_FORMATTING)
     call_variants(args, recalibrate=False, group=True)
@@ -436,7 +464,7 @@ output_vcfsnp_file = os.path.join(out_vcf_dir, out_vcfsnp_name)
 output_vcfindel_file = os.path.join(out_vcf_dir, out_vcfindel_name)
 
 if os.path.isfile(output_vcfsnp_file) and os.path.isfile(output_vcfindel_file):
-    print(YELLOW + DIM + output_vcfsnp_file + BOLD + " EXIST\nOmmiting Variant Selection (Group) for group " + group_name + END_FORMATTING)
+    print(YELLOW + DIM + output_vcfsnp_file + " EXIST\nOmmiting Variant Selection (Group) for group " + group_name + END_FORMATTING)
 else:
     print(GREEN + "Selecting Variants (Group) in group " + group_name + END_FORMATTING)
     select_variants(output_vcf_file, select_type='SNP')
@@ -451,7 +479,7 @@ output_vcfhfindel_file = os.path.join(out_vcf_dir, out_vcfhfindel_name)
 
 
 if os.path.isfile(output_vcfhfsnp_file) and os.path.isfile(output_vcfhfindel_file):
-    print(YELLOW + DIM + output_vcfhfsnp_file + BOLD + " EXIST\nOmmiting Hard Filtering (Group) for group " + group_name + END_FORMATTING)
+    print(YELLOW + DIM + output_vcfhfsnp_file + " EXIST\nOmmiting Hard Filtering (Group) for group " + group_name + END_FORMATTING)
 else:
     print(GREEN + "Hard Filtering Variants (Group) in group " + group_name + END_FORMATTING)
     hard_filter(output_vcfsnp_file, select_type='SNP')
@@ -467,7 +495,7 @@ output_vcfhfindelpass_file = os.path.join(out_vcf_dir, out_vcfhfindelpass_name)
 
 
 if os.path.isfile(output_vcfhfindelpass_file) and os.path.isfile(output_vcfhfsnppass_file):
-    print(YELLOW + DIM + output_vcfhfsnppass_file + BOLD + " EXIST\nOmmiting PASS Filtering (Group) for group " + group_name + END_FORMATTING)
+    print(YELLOW + DIM + output_vcfhfsnppass_file + " EXIST\nOmmiting PASS Filtering (Group) for group " + group_name + END_FORMATTING)
 else:
     print(GREEN + "PASS Filtering Variants (Group) in group " + group_name + END_FORMATTING)
     select_pass_variants(output_vcfhfsnp_file)
@@ -494,7 +522,7 @@ for r1_file, r2_file in zip(r1, r2):
         in_final_vcf = os.path.join(out_vcf_dir, in_final_name)
 
         if os.path.isfile(output_final_vcf):
-            print(YELLOW + DIM + output_final_vcf + BOLD + " EXIST\nOmmiting Final filter for sample " + sample + END_FORMATTING)
+            print(YELLOW + DIM + output_final_vcf + " EXIST\nOmmiting Final filter for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Final filter in sample " + sample + END_FORMATTING)
             vcf_consensus_filter(in_final_vcf, distance=10, AF=0.75)

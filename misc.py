@@ -3,6 +3,8 @@ import os
 import sys
 import re
 import subprocess
+import pandas as pd
+import numpy as np
 
 
 #COLORS AND AND FORMATTING
@@ -199,3 +201,57 @@ def file_to_list(file_name):
         for line in f:
             list_F.append(line.strip())
     return list_F
+
+
+def get_coverage(args, input_bam, output_fmt="-d"):
+    """
+    #Calculate genome coverage at each position using bedtools and an input bam
+    https://bedtools.readthedocs.io/en/latest/content/tools/genomecov.html
+    """
+    #reference = os.path.abspath(args.reference)
+
+    input_bam = os.path.abspath(input_bam)
+    input_bam_base = os.path.basename(input_bam)
+
+    sample = input_bam_base.split(".")[0]
+    output_dir = obtain_output_dir(args, "Coverage")
+    sample_name = sample + ".cov"
+    output_file = os.path.join(output_dir, sample_name)
+
+    check_create_dir(output_dir)
+
+    #execute_subprocess(cmd)
+    with open(output_file, "w") as outfile:
+        #calculate coverage and save it in th eoutput file
+        subprocess.run(["genomeCoverageBed", "-ibam", input_bam, output_fmt], 
+        stdout=outfile, stderr=subprocess.PIPE, check=True, universal_newlines=True)
+
+def calculate_cov_stats(file_cov):
+    df = pd.read_csv(file_cov, sep="\t", names=["#CHROM", "POS", "COV" ])
+    unmmaped_pos = len(df.POS[df.COV == 0].tolist())
+    total_pos = df.shape[0]
+    unmmaped_prop = "%.2f" % ((unmmaped_pos/total_pos)*100)
+    mean_cov = "%.2f" % (df.COV.mean())
+    return mean_cov, unmmaped_prop
+
+def obtain_group_cov_stats(directory):
+    directory_path = os.path.abspath(directory)
+    if directory_path.endswith("Coverage"):
+        file_name = directory_path.split("/")[-2]
+    else:
+        file_name = "samples"
+
+    output_file_name = file_name + ".covegare.tab"
+    output_file = os.path.join(directory_path,output_file_name)
+
+
+    with open(output_file, "w") as outfile:
+        outfile.write("#SAMPLE" + "\t" + "MEAN_COV" + "\t" + "UNMMAPED_PROP" + "\n")
+        for root, _, files in os.walk(directory_path):
+            for name in files:
+                filename = os.path.join(root, name)
+                file_name_cov = os.path.basename(filename)
+                sample = file_name_cov.split(".")[0]
+                if filename.endswith(".cov") and (os.path.getsize(filename) > 0):
+                    mean_cov, unmmaped_prop = calculate_cov_stats(filename)
+                    outfile.write("%s\t%s\t%s\n" % (sample, mean_cov, unmmaped_prop))
