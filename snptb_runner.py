@@ -142,7 +142,7 @@ for r1_file, r2_file in zip(r1, r2):
         """
         TODO: Quality check 
         """
-        
+        """        
         #QUALITY TRIMMING AND ADAPTER REMOVAL WITH bbduk.sh
         ###################################################
         out_trim_dir = os.path.join(args.output, "Trimmed")
@@ -201,6 +201,8 @@ for r1_file, r2_file in zip(r1, r2):
         else:
             print(GREEN + "Calculating coverage in sample " + sample + END_FORMATTING)
             get_coverage(args, output_markdup_file, output_fmt="-d")
+        """
+        out_map_dir = os.path.join(args.output, "Bam")
 
         #HAPLOTYPE CALL 1/2 FOR HARD FILTERING AND RECALIBRATION
         #######################################################

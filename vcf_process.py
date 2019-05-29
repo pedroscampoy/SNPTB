@@ -63,12 +63,13 @@ def import_VCF42_to_pandas(vcf_file, sep='\t'):
         dataframe['REF_AD'] = dataframe['AD'].str.split(",").str[0]
         #dataframe['ALT_AD'] = dataframe['AD'].str.split(",").str[1]
         dataframe['ALT_AD'] = dataframe.apply(calculate_ALT_AD, axis=1)
+        dataframe[['gt0','gt1']] = dataframe['GT'].str.split(r'[/|\|]', expand=True)
 
                 
         to_float = ['QUAL', 'AC', 'af', 'AN', 'BaseQRankSum', 'DP', 'ExcessHet', 'FS',
        'MLEAC', 'MLEAF', 'MQ', 'MQRankSum', 'QD', 'ReadPosRankSum', 'SOR','GQ','ALT_AD', 'REF_AD']
         
-        to_int = ['POS', 'len_AD']
+        to_int = ['POS', 'len_AD', 'gt0', 'gt1']
         
         to_str = ['#CHROM','REF','ALT', 'FILTER']
         
@@ -173,6 +174,61 @@ def add_snp_distance(vcf_df):
             vcf_df.loc[index,'snp_right_distance'] = vcf_df.loc[index + 1,'POS'] - vcf_df.loc[index,'POS']
             
     return vcf_df
+
+def add_window_distance(vcf_df, window_size=10):
+    """
+    Add a column indicating the maximum number of SNPs in a windows of 10
+    """
+    list_pos = vcf_df.POS.to_list() #all positions
+    set_pos = set(list_pos) #to set for later comparing
+    max_pos = max(vcf_df.POS.to_list()) #max to iter over positions (independent from reference)
+
+    all_list = list(range(1, max_pos + 1)) #create a list to slide one by one
+    
+    #Create sets
+    set_2 = set()
+    set_3 = set()
+    set_4 = set()
+    set_5 = set()
+    
+    sets = [set_2, set_3, set_4, set_5]
+    
+    #Slide over windows
+    for i in range(0,max_pos,1):
+        window_pos = all_list[i:i+window_size]
+        set_window_pos = set(window_pos)
+        #How many known positions are in every window for later clasification
+        num_conglomerate = set_pos & set_window_pos
+        
+        if len(num_conglomerate) > 4:
+            set_5.update(num_conglomerate)
+        elif len(num_conglomerate) == 4:
+            set_4.update(num_conglomerate)
+        elif len(num_conglomerate) == 3:
+            set_3.update(num_conglomerate)
+        elif len(num_conglomerate) == 2:
+            set_2.update(num_conglomerate)
+            
+    #Remove positions in a higher number of sets
+    for set_num in range(0, len(sets)):
+        if set_num < (len(sets) - 1):
+            sets[set_num] = sets[set_num] - sets[set_num + 1]
+            
+    for index, _ in vcf_df.iterrows():
+        if vcf_df.loc[index,'POS'] in sets[0]:
+            vcf_df.loc[index, 'Window_10'] = 2
+        elif vcf_df.loc[index,'POS'] in sets[1]:
+            vcf_df.loc[index, 'Window_10'] = 3
+        elif vcf_df.loc[index,'POS'] in sets[2]:
+            vcf_df.loc[index, 'Window_10'] = 4
+        elif vcf_df.loc[index,'POS'] in sets[3]:
+            vcf_df.loc[index, 'Window_10'] = 5
+        else:
+            vcf_df.loc[index, 'Window_10'] = 1
+            
+    vcf_df['Window_10'] = vcf_df['Window_10'].astype(int)
+
+
 
 def filter_repeats(row):
     if (((row['POS'] >= 33582 ) & (row['POS'] <=  33794))|((row['POS'] >= 103710 ) & (row['POS'] <=  104663))|
@@ -327,6 +383,9 @@ def filter_repeats(row):
 
 
 def filter_vcf_list(raw_vcf, list_pos, name_out):
+    """
+    Remove positions supplies in a list and creates a different vcf with the name supplied
+    """ 
     input_vcf = os.path.abspath(raw_vcf)
     input_vcf_dir_name = ("/").join(input_vcf.split("/")[:-1])
      
@@ -344,12 +403,13 @@ def filter_vcf_list(raw_vcf, list_pos, name_out):
 
 
 
-def vcf_consensus_filter(vcf_file, distance=15, AF=0.75, QD=15):
+def vcf_consensus_filter(vcf_file, distance=15, AF=0.75, QD=15, window_10=3):
     """
     Apply custom filter to individual vcf based on:
     AF
-    snp distance
+    snp distance --> Replaced by window_10
     QD
+    Window_10
     """
     df_vcf = import_VCF42_to_pandas(vcf_file)
 
@@ -370,14 +430,18 @@ def vcf_consensus_filter(vcf_file, distance=15, AF=0.75, QD=15):
     #Add info of nearby positions
     add_snp_distance(df_vcf)
 
+    #Add info of clustered positions in sliding window
+    add_window_distance(df_vcf, window_size=10)
+
     #output all raw info into a file
     new_out_file = tab_name + extend_raw
     output_raw_tab = os.path.join(table_outputt_dir, new_out_file)
     df_vcf.to_csv(output_raw_tab, sep='\t', index=False)
     
     list_positions_to_filter = df_vcf['POS'][((df_vcf.AF < AF) | 
-                                (df_vcf.snp_left_distance <= distance)|
-                                (df_vcf.snp_right_distance <= distance)|
+                                #(df_vcf.snp_left_distance <= distance)|
+                                #(df_vcf.snp_right_distance <= distance)|
+                                (df_vcf.Window_10 >= window_10)|
                                 (df_vcf.AF <= 0.0)|
                                 (df_vcf.QD <= QD)|
                                 (df_vcf.Is_repeat == True))].tolist()
