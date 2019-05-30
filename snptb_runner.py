@@ -69,7 +69,7 @@ def get_arguments():
 
     gatk_group = parser.add_argument_group('GATK parameters', 'parameters for diferent variant calling')
 
-    gatk_group.add_argument('-p', '--ploidy', type=str, required=False, default=1, help='Set ploidy when HC call, default 1')
+    gatk_group.add_argument('-p', '--ploidy', type=str, required=False, default=2, help='Set ploidy when HC call, default 2')
 
     params_group = parser.add_argument_group('Parameters', 'parameters for diferent stringent conditions')
 
@@ -142,7 +142,7 @@ for r1_file, r2_file in zip(r1, r2):
         """
         TODO: Quality check 
         """
-        """        
+                
         #QUALITY TRIMMING AND ADAPTER REMOVAL WITH bbduk.sh
         ###################################################
         out_trim_dir = os.path.join(args.output, "Trimmed")
@@ -201,7 +201,7 @@ for r1_file, r2_file in zip(r1, r2):
         else:
             print(GREEN + "Calculating coverage in sample " + sample + END_FORMATTING)
             get_coverage(args, output_markdup_file, output_fmt="-d")
-        """
+        
         out_map_dir = os.path.join(args.output, "Bam")
 
         #HAPLOTYPE CALL 1/2 FOR HARD FILTERING AND RECALIBRATION
