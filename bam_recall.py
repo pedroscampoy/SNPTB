@@ -312,7 +312,7 @@ def hard_filter(selected_vcf, select_type='SNP'):
         vcf_hard_filtered_output_file = selected_vcf_file_name + extension
         cmd = ["gatk", "VariantFiltration", 
             "--variant", input_vcf,
-            "--filter-expression", "QD < 8.0", "--filter-name", "QD8",
+            "--filter-expression", "QD < 2.0", "--filter-name", "QD2",
             "--filter-expression", "QUAL < 30.0", "--filter-name", "QUAL30",
             "--filter-expression", "SOR > 3.0", "--filter-name", "SOR3",
             "--filter-expression", "FS > 60.0", "--filter-name", "FS60",
@@ -327,7 +327,7 @@ def hard_filter(selected_vcf, select_type='SNP'):
         vcf_hard_filtered_output_file = selected_vcf_file_name + extension
         cmd = ["gatk", "VariantFiltration", 
             "--variant", input_vcf,
-            "--filter-expression", "QD < 8.0", "--filter-name", "QD8",
+            "--filter-expression", "QD < 2.0", "--filter-name", "QD2",
             "--filter-expression", "QUAL < 30.0", "--filter-name", "QUAL30",
             "--filter-expression", "SOR > 10.0", "--filter-name", "SOR10",
             "--filter-expression", "FS > 200.0", "--filter-name", "FS200",

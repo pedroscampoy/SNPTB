@@ -166,7 +166,7 @@ for r1_file, r2_file in zip(r1, r2):
         args.r1_file = output_trimming_file_r1
         args.r2_file = output_trimming_file_r2
 
-        if os.path.isfile(output_map_file):
+        if os.path.isfile(output_map_file) or os.path.isfile(output_markdup_file):
             print(YELLOW + DIM + output_map_file + " EXIST\nOmmiting Mapping for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Mapping sample " + sample + END_FORMATTING)
