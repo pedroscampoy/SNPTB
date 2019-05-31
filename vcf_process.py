@@ -403,7 +403,7 @@ def filter_vcf_list(raw_vcf, list_pos, name_out):
 
 
 
-def vcf_consensus_filter(vcf_file, distance=15, AF=0.75, QD=15, window_10=3):
+def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3):
     """
     Apply custom filter to individual vcf based on:
     AF
@@ -439,8 +439,8 @@ def vcf_consensus_filter(vcf_file, distance=15, AF=0.75, QD=15, window_10=3):
     df_vcf.to_csv(output_raw_tab, sep='\t', index=False)
     
     list_positions_to_filter = df_vcf['POS'][((df_vcf.AF < AF) | 
-                                #(df_vcf.snp_left_distance <= distance)|
-                                #(df_vcf.snp_right_distance <= distance)|
+                                (df_vcf.snp_left_distance <= distance)|
+                                (df_vcf.snp_right_distance <= distance)|
                                 (df_vcf.Window_10 >= window_10)|
                                 (df_vcf.AF <= 0.0)|
                                 (df_vcf.QD <= QD)|
