@@ -410,11 +410,12 @@ def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3):
     snp distance --> Replaced by window_10
     QD
     Window_10
+    gatk asigned genotype for diploid calls
     """
     df_vcf = import_VCF42_to_pandas(vcf_file)
 
     vcf_path = os.path.abspath(vcf_file)
-    output_dir = ("/").join(vcf_path.split("/")[:-1])
+    output_dir = ("/").join(vcf_path.split("/")[:-2])
     vcf_name = vcf_path.split("/")[-1]
 
     tab_name = (".").join(vcf_name.split(".")[:-1])
@@ -444,6 +445,8 @@ def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3):
                                 (df_vcf.Window_10 >= window_10)|
                                 (df_vcf.AF <= 0.0)|
                                 (df_vcf.QD <= QD)|
+                                (df_vcf.len_AD > 2) |
+                                ((df_vcf.gt0 == 0) & (df_vcf.Window_10 > 1)) |
                                 (df_vcf.Is_repeat == True))].tolist()
     
     final_vcf_name = tab_name + extend_final

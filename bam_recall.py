@@ -339,7 +339,7 @@ def hard_filter(selected_vcf, select_type='SNP'):
     execute_subprocess(cmd)
 
 
-def combine_gvcf(args, recalibrate=False):
+def combine_gvcf(args, recalibrate=False, all_gvcf=False):
     """
     https://software.broadinstitute.org/gatk/documentation/tooldocs/4.1.2.0/org_broadinstitute_hellbender_tools_walkers_CombineGVCFs.php
     #combined multi-sample gVCF:
@@ -370,16 +370,29 @@ def combine_gvcf(args, recalibrate=False):
             if filename.endswith(".g.vcf"):
                 cmd.append("--variant")
                 cmd.append(filename)
-    
+    if all_gvcf != False:
+        if os.path.isdir(all_gvcf):
+            all_gvcf = os.path.abspath(all_gvcf)
+            print("Using gvcf from enricment folder:" + all_gvcf)
+            for root, _, files in os.walk(all_gvcf):
+                for name in files:
+                    filename = os.path.join(root, name)
+                    if filename.endswith(".g.vcf"):
+                        cmd.append("--variant")
+                        cmd.append(filename)
+        else:
+            print("GVCF enrichment folder does not exist")
+
     execute_subprocess(cmd)
 
-def select_pass_variants(raw_vcf, max_nocall=0):
+def select_pass_variants(raw_vcf, nocall_fr=0.2):
     """
     Filter a vcf file. Output a vcf file with PASS positions adding a .pass to the output file
     Used since it creates the neccesasary vcf index
     https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_variantutils_SelectVariants.php
     https://gatkforums.broadinstitute.org/gatk/discussion/13127/do-gatk4-tools-ignore-vcf-sites-marked-as-filtered-or-must-they-be-removed-from-the-file
     """
+    #max_nocall=2, 
 
     input_vcf = os.path.abspath(raw_vcf)
     check_file_exists(input_vcf)
@@ -391,11 +404,12 @@ def select_pass_variants(raw_vcf, max_nocall=0):
 
     cmd = ["gatk", "SelectVariants", 
     "--variant", input_vcf,
-    "--max-nocall-number", str(max_nocall),
+    "--max-nocall-fraction", str(nocall_fr),
     "--exclude-filtered",
     "--remove-unused-alternates",
     "--output", vcf_selected_output_file]
-    
+
+    #"--max-nocall-number", str(max_nocall),
     execute_subprocess(cmd)
 
 def select_pass(raw_vcf):
@@ -483,14 +497,18 @@ def recalibrate_bam(args, tb=True):
     execute_subprocess(cmd_apply)
 
 
-def split_vcf_saples(vcf_file):
+def split_vcf_saples(vcf_file, sample_list=False):
     """
     https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_variantutils_SelectVariants.php
     https://www.biostars.org/p/224702/
     #TODO: check if argument --exclude-filtered is suitable here. It would save select_pass_variants() step
     """
-    samples = subprocess.run(["bcftools", "query", "-l", vcf_file],stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, universal_newlines=True)
-    sample_list = samples.stdout.split("\n")[:-1]
+    
+    if sample_list == False:
+        samples = subprocess.run(["bcftools", "query", "-l", vcf_file],stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, universal_newlines=True)
+        sample_list = samples.stdout.split("\n")[:-1]
+    else:
+        sample_list = sample_list
     
     vcf_file_path = os.path.abspath(vcf_file)
     vcf_dir_name = os.path.dirname(vcf_file)

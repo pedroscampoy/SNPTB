@@ -141,25 +141,26 @@ def extract_read_list(input_dir):
     """
     Search files in a directory sort by name and extract comon name of R1 and R2
     with extract_sample() function
+    190615 - Limit only parent folder, not subdirectories
     """
     input_dir = os.path.abspath(input_dir)
     r1_list = []
     r2_list = []
     for root, _, files in os.walk(input_dir):
-        for name in files:
-            filename = os.path.join(root, name)
-            is_fasta = re.match(r'.*\.fast[aq](\.gz)*',filename)
-            r1 = re.match(r'.*(_R1_|_1|_1_|_R1).*\.fast[aq](\.gz)*',filename)
-            r2 = re.match(r'.*(_R2_|_2|_2_|_R2).*\.fast[aq](\.gz)*',filename)
-
-            if is_fasta:
-                if r1:
-                    r1_list.append(r1.group())
-                elif r2:
-                    r2_list.append(r2.group())
-                else:
-                    print(RED + "ERROR, file is not R1 nor R2" + END_FORMATTING)
-                    sys.exit(1)
+        if root == input_dir: # This only apply to parent folder, not subdirectories
+            for name in files:
+                filename = os.path.join(root, name)
+                is_fasta = re.match(r'.*\.fast[aq](\.gz)*',name)
+                r1 = re.match(r'.*(_R1_|_1|_1_|_R1).*\.fast[aq](\.gz)*$',name)
+                r2 = re.match(r'.*(_R2_|_2|_2_|_R2).*\.fast[aq](\.gz)*$',name)
+                if is_fasta:
+                    if r1:
+                        r1_list.append(filename)
+                    elif r2:
+                        r2_list.append(filename)
+                    else:
+                        print(RED + "ERROR, file is not R1 nor R2" + END_FORMATTING)
+                        sys.exit(1)
     r1_list = sorted(r1_list)
     r2_list = sorted(r2_list)
     return r1_list, r2_list
@@ -234,7 +235,7 @@ def calculate_cov_stats(file_cov):
     mean_cov = "%.2f" % (df.COV.mean())
     return mean_cov, unmmaped_prop
 
-def obtain_group_cov_stats(directory):
+def obtain_group_cov_stats(directory, low_cov_threshold=20, unmmaped_threshold=20):
     directory_path = os.path.abspath(directory)
     if directory_path.endswith("Coverage"):
         file_name = directory_path.split("/")[-2]
@@ -244,6 +245,7 @@ def obtain_group_cov_stats(directory):
     output_file_name = file_name + ".covegare.tab"
     output_file = os.path.join(directory_path,output_file_name)
 
+    saples_low_covered = []
 
     with open(output_file, "w") as outfile:
         outfile.write("#SAMPLE" + "\t" + "MEAN_COV" + "\t" + "UNMMAPED_PROP" + "\n")
@@ -254,4 +256,18 @@ def obtain_group_cov_stats(directory):
                 sample = file_name_cov.split(".")[0]
                 if filename.endswith(".cov") and (os.path.getsize(filename) > 0):
                     mean_cov, unmmaped_prop = calculate_cov_stats(filename)
+                    if float(mean_cov) < low_cov_threshold or float(unmmaped_prop) > unmmaped_threshold:
+                         saples_low_covered.append(sample)
                     outfile.write("%s\t%s\t%s\n" % (sample, mean_cov, unmmaped_prop))
+
+    return saples_low_covered
+
+def remove_low_covered(output_dir, sample_list):
+    output_dir = os.path.abspath(output_dir)
+    for root, _, files in os.walk(output_dir):
+        if root.endswith('GVCF_recal'):
+            for name in files:
+                filename = os.path.join(root, name)
+                for sample_low in sample_list:
+                    if name.startswith(sample_low):
+                        os.remove(filename)

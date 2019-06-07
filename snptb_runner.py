@@ -7,7 +7,7 @@ import argparse
 #import argcomplete
 import subprocess
 from misc import check_file_exists, extract_sample, obtain_output_dir, check_create_dir, execute_subprocess, \
-    extract_read_list, file_to_list, get_coverage, obtain_group_cov_stats
+    extract_read_list, file_to_list, get_coverage, obtain_group_cov_stats, remove_low_covered
 from bbduk_trimmer import bbduk_trimming
 from pe_mapper import bwa_mapping, sam_to_index_bam
 from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplotype_caller, call_variants, \
@@ -91,14 +91,14 @@ r1, r2 = extract_read_list(args.input_dir)
 #Check if there are samples to filter
 sample_list_F = []
 if args.sample_list == None:
-    print("No samples to filter")
+    print("\n" + "No samples to filter")
     for r1_file, r2_file in zip(r1, r2):
         sample = extract_sample(r1_file, r2_file)
         sample_list_F.append(sample)
 else:
     print("samples will be filtered")
     sample_list_F = file_to_list(args.sample_list)
-print("%d samples will be analysed: %s" % (len(sample_list_F), ",".join(sample_list_F)))
+print("\n%d samples will be analysed: %s" % (len(sample_list_F), ",".join(sample_list_F)))
 
 
 ######################################################################
@@ -163,6 +163,9 @@ for r1_file, r2_file in zip(r1, r2):
         out_map_name = sample + ".rg.sorted.bam"
         output_map_file = os.path.join(out_map_dir, out_map_name)
 
+        out_markdup_name = sample + ".rg.markdup.sorted.bam"
+        output_markdup_file = os.path.join(out_map_dir, out_markdup_name)
+
         args.r1_file = output_trimming_file_r1
         args.r2_file = output_trimming_file_r2
 
@@ -202,8 +205,6 @@ for r1_file, r2_file in zip(r1, r2):
             print(GREEN + "Calculating coverage in sample " + sample + END_FORMATTING)
             get_coverage(args, output_markdup_file, output_fmt="-d")
         
-        out_map_dir = os.path.join(args.output, "Bam")
-
         #HAPLOTYPE CALL 1/2 FOR HARD FILTERING AND RECALIBRATION
         #######################################################
         out_gvcfr_dir = os.path.join(args.output, "GVCF_recal")
@@ -254,27 +255,50 @@ for r1_file, r2_file in zip(r1, r2):
             print(GREEN + "Hard Filtering Variants (Recall) in sample " + sample + END_FORMATTING)
             hard_filter(output_vcfsnpr_file, select_type='SNP')
 """
+
+
+
+group_name = output.split("/")[-1]
+print("\n\n" + BLUE + BOLD + "CHECKING LOW COVERED SAMPLES IN GROUP: " + group_name + END_FORMATTING + "\n")
+
+#GROUP COVERAGE SUMMARY STATS##########################
+#######################################################
+
+out_covg_dir = os.path.join(args.output, "Coverage")
+out_covg_name = group_name + ".covegare.tab"
+output_covg_file = os.path.join(out_covg_dir, out_covg_name)
+"""
+if os.path.isfile(output_covg_file):
+    print(YELLOW + DIM + output_covg_file + " EXIST\nOmmiting group coverage calculation for group " + group_name + END_FORMATTING)
+else:
+    print(GREEN + "Group coverage stats in group " + group_name + END_FORMATTING)
+    saples_low_covered = obtain_group_cov_stats(out_covg_dir, low_cov_threshold=20, unmmaped_threshold=20)
+"""
+
+saples_low_covered = obtain_group_cov_stats(out_covg_dir, low_cov_threshold=20, unmmaped_threshold=20)
+
+if len(saples_low_covered) > 0:
+    print("\n" + YELLOW + BOLD + "There are sample(s) with low coverage that will be removed from the analysis: " + "\n"\
+         + ",".join(saples_low_covered) + END_FORMATTING + "\n")
+    remove_low_covered(args.output, saples_low_covered)
+    #Remove sample from the list of filtered samples
+    ################################################
+    for samples_to_remove in saples_low_covered:
+        sample_list_F.remove(samples_to_remove)
+else:
+    print("\n" + YELLOW + BOLD + "All samples have a decent depth of coverage according to threshold supplied" + "\n")
+
+
+
+
 #ONCE ALL GVCF VARIANTS ARE CALLED, THEY ARE GATHERED AND FILTERED 
 # TO RECALIBRATE ORIGINAL MARKDUPPED BAM
 ######################################################################
 ##############START GROUP CALLING FOR RECALIBRATION###################
 ######################################################################
+
 group_name = output.split("/")[-1]
 print("\n\n" + BLUE + BOLD + "STARTING JOINT CALL FOR RECALIBATION IN GROUP: " + group_name + END_FORMATTING + "\n")
-
-
-
-#GROUP COVERAGE SUMMARY STATS##########################
-#######################################################
-out_covg_dir = os.path.join(args.output, "Coverage")
-out_covg_name = group_name + ".covegare.tab"
-output_covg_file = os.path.join(out_covg_dir, out_covg_name)
-
-if os.path.isfile(output_covg_file):
-    print(YELLOW + DIM + output_covg_file + " EXIST\nOmmiting group coverage calculation for group " + group_name + END_FORMATTING)
-else:
-    print(GREEN + "Group coverage stats in group " + group_name + END_FORMATTING)
-    obtain_group_cov_stats(out_covg_dir)
 
 #CALL VARIANTS 1/2 FOR HARD FILTERING AND RECALIBRATION
 #######################################################
@@ -286,7 +310,7 @@ if os.path.isfile(output_gvcfr_file):
     print(YELLOW + DIM + output_gvcfr_file + " EXIST\nOmmiting GVCF Combination (Recall) for group " + group_name + END_FORMATTING)
 else:
     print(GREEN + "GVCF Combination (Recall) in group " + group_name + END_FORMATTING)
-    combine_gvcf(args, recalibrate=True)
+    combine_gvcf(args, recalibrate=True, all_gvcf="/home/laura/DATABASES/GVCF")
 
 #CALL VARIANTS 1/2 FOR HARD FILTERING AND RECALIBRATION
 #######################################################
@@ -444,7 +468,7 @@ if os.path.isfile(output_gvcf_file):
     print(YELLOW + DIM + output_gvcfr_file + " EXIST\nOmmiting GVCF Combination for group " + group_name + END_FORMATTING)
 else:
     print(GREEN + "GVCF Combination in group " + group_name + END_FORMATTING)
-    combine_gvcf(args, recalibrate=False)
+    combine_gvcf(args, recalibrate=False, all_gvcf="/home/laura/DATABASES/GVCF")
 
 #CALL VARIANTS 2/2 FOR HARD FILTERING AND RECALIBRATION
 #######################################################
@@ -503,7 +527,8 @@ else:
     select_pass_variants(output_vcfhfsnp_file)
     select_pass_variants(output_vcfhfindel_file)
 
-split_vcf_saples(output_vcfhfsnppass_file)
+
+split_vcf_saples(output_vcfhfsnppass_file, sample_list=sample_list_F)
 
 
 
