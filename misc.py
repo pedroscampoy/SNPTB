@@ -242,7 +242,7 @@ def obtain_group_cov_stats(directory, low_cov_threshold=20, unmmaped_threshold=2
     else:
         file_name = "samples"
 
-    output_file_name = file_name + ".covegare.tab"
+    output_file_name = file_name + ".coverage.tab"
     output_file = os.path.join(directory_path,output_file_name)
 
     saples_low_covered = []

@@ -136,9 +136,11 @@ def import_VCF42_to_pandas_legacy(vcf_file, sep='\t'):
         #dataframe['ALT_AD'] = dataframe['AD'].str.split(",").str[-2:].str[1]
         
         to_float = ['QUAL', 'AC', 'af', 'AN', 'BaseQRankSum', 'DP', 'ExcessHet', 'FS',
-       'MLEAC', 'MLEAF', 'MQ', 'MQRankSum', 'QD', 'ReadPosRankSum', 'SOR','GQ','ALT_AD', 'REF_AD']
+       'MLEAC', 'MLEAF', 'MQ', 'MQRankSum', 'QD', 'ReadPosRankSum', 'SOR','GQ','ALT_AD', 'REF_AD', 'InbreedingCoeff']
         
-        to_int = ['POS']
+        to_int = ['POS', 'len_AD', 'gt0', 'gt1']
+        
+        to_str = ['#CHROM','REF','ALT', 'FILTER']
         
         for column in dataframe.columns:
             if column in to_float:
@@ -147,11 +149,15 @@ def import_VCF42_to_pandas_legacy(vcf_file, sep='\t'):
         for column in dataframe.columns:
             if column in to_int:
                 dataframe[column] = dataframe[column].astype(int)
+                
+        for column in dataframe.columns:
+            if column in to_str:
+                dataframe[column] = dataframe[column].astype(str)
+
         dataframe['dp'] = (dataframe['REF_AD'] + dataframe['ALT_AD'])
         dataframe['aF'] = dataframe['REF_AD']/dataframe['dp']
         dataframe['AF'] = dataframe['ALT_AD']/dataframe['dp']
 
-                
     else:
         print("This vcf file is not v4.2")
         sys.exit(1)
