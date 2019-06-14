@@ -210,7 +210,7 @@ def sam_to_index_bam(args):
 
     add_SG(args, output_bam_path, output_bg_sorted_path)
 
-    #check_remove_file(output_bam_path)
+    check_remove_file(output_bam_path)
 
     """
     output_sorted_name = input_name + ".sorted.bam"

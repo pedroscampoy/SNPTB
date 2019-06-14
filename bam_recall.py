@@ -3,6 +3,7 @@
 import os
 import argparse
 import subprocess
+import shutil
 from misc import check_file_exists, obtain_output_dir, check_create_dir, get_picard_path, execute_subprocess, check_remove_file
 
 
@@ -226,7 +227,7 @@ def call_variants(args, recalibrate=False, group=True):
     """
     output = os.path.abspath(args.output)
 
-    input_reference = os.path.abspath(args.reference)
+    #input_reference = os.path.abspath(args.reference)
     
     file_name = args.sample #sample_name
     group_name = output.split("/")[-1] #group_name
@@ -252,10 +253,9 @@ def call_variants(args, recalibrate=False, group=True):
     check_create_dir(vcf_output_dir)
 
     cmd = ["gatk", "GenotypeGVCFs", 
-    "--reference", input_reference,
     "--variant", gvcf_input_full,
     "--output", vcf_output_full]
-
+    #"--reference", input_reference,
     execute_subprocess(cmd)
     
 
@@ -282,7 +282,12 @@ def select_variants(raw_vcf, select_type='SNP'):
     cmd = ["gatk", "SelectVariants", 
     "--variant", input_vcf,
     "--select-type-to-include", select_type,
+    "--select-type-to-include", "MIXED",
     "--output", vcf_selected_output_file]
+
+#    "--remove-unused-alternates",
+
+
 
     execute_subprocess(cmd)
 
@@ -518,10 +523,12 @@ def split_vcf_saples(vcf_file, sample_list=False):
     for sample_name in sample_list:
         output_vcf_name = sample_name + "." + vcf_file_extension
         output_vcf_file = os.path.join(vcf_dir_name, output_vcf_name)
-        cmd = ["gatk", "SelectVariants", 
+        cmd = ["gatk", "SelectVariants",
+        "--select-type-to-include", "SNP",
         "--variant", vcf_file,
         "--sample-name", sample_name,
         "--exclude-non-variants",
+        "--remove-unused-alternates",
         "--output", output_vcf_file]
 
         execute_subprocess(cmd)

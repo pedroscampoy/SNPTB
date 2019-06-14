@@ -26,7 +26,7 @@ VERSION=0.1
 CREATED: 28 April 2019
 REVISION: 
 
-TODO: Use a list of samples to filter 
+TODO:
     Check file with multiple arguments
     Check program is installed (dependencies)
 ================================================================
@@ -56,11 +56,12 @@ def get_arguments():
     input_group.add_argument('-i', '--input', dest="input_dir", metavar="input_directory", type=str, required=True, help='REQUIRED.Input directory containing all fast[aq] files')
     input_group.add_argument('-r', '--reference', metavar="reference", type=str, required=True, help='REQUIRED. File to map against')
     input_group.add_argument('-s', '--sample', metavar="sample", type=str, required=False, help='Sample to identify further files')
-
+    input_group.add_argument('-S', '--sample_list', type=str, required=False, help='Sample names to analyse only in the file supplied')
+    
     output_group = parser.add_argument_group('Output', 'Required parameter to output results')
 
     output_group.add_argument('-o', '--output', type=str, required=True, help='REQUIRED. Output directory to extract all results')
-    output_group.add_argument('-S', '--sample_list', type=str, required=False, help='Sample names to analyse only in the file supplied')
+    
 
     trimming_group = parser.add_argument_group('Trimming parameters', 'parameters for diferent triming conditions')
 
@@ -79,6 +80,7 @@ def get_arguments():
 
     params_group = parser.add_argument_group('Parameters', 'parameters for diferent stringent conditions')
 
+    params_group.add_argument('-c', '--mincov', type=int, required=False, default=20, help='Minimun coverage to add samples into analysis')
     params_group.add_argument('-T', '--threads', type=str, dest = "threads", required=False, default=4, help='Threads to use')
     params_group.add_argument('-M', '--memory', type=str, dest = "memory", required=False, default=8, help='MAx memory to use')
 
@@ -122,157 +124,131 @@ print("\n\n" + BLUE + BOLD + "STARTING PIPELINE IN GROUP: " + group_name + END_F
 picard_dictionary(args)
 samtools_faidx(args)
 
+#DECLARE FOLDERS CREATED IN PIPELINE ################
+#####################################################
+out_trim_dir = os.path.join(args.output, "Trimmed")
+out_map_dir = os.path.join(args.output, "Bam")
+out_cov_dir = os.path.join(args.output, "Coverage")
+out_gvcfr_dir = os.path.join(args.output, "GVCF_recal")
+out_vcfr_dir = os.path.join(args.output, "VCF_recal")
+out_gvcf_dir = os.path.join(args.output, "GVCF")
+out_vcf_dir = os.path.join(args.output, "VCF")
+
+
+
 
 for r1_file, r2_file in zip(r1, r2):
     sample = extract_sample(r1_file, r2_file)
     args.sample = sample
     if sample in sample_list_F:
-        args.r1_file = r1_file
-        args.r2_file = r2_file
+        out_bqsr_name = sample + ".bqsr.bam"
+        output_bqsr_file = os.path.join(out_map_dir, out_bqsr_name)
 
-        print("\n" + WHITE_BG + "STARTING SAMPLE: " + sample + END_FORMATTING)
-
-        ##############START PIPELINE#####################
-        #################################################
-
-
-        #INPUT ARGUMENTS
-        ################
-        check_file_exists(args.r1_file)
-        check_file_exists(args.r2_file)
-
-        args.output = os.path.abspath(args.output)
-        check_create_dir(args.output)
-        #QUALITY CHECK
-        ##############
-        """
-        TODO: Quality check 
-        """
-                
-        #QUALITY TRIMMING AND ADAPTER REMOVAL WITH bbduk.sh
-        ###################################################
-        out_trim_dir = os.path.join(args.output, "Trimmed")
-        out_trim_name_r1 = sample + "_R1.clean.fastq.gz"
-        out_trim_name_r2 = sample + "_R2.clean.fastq.gz"
-        output_trimming_file_r1 = os.path.join(out_trim_dir, out_trim_name_r1)
-        output_trimming_file_r2 = os.path.join(out_trim_dir, out_trim_name_r2)
+        if not os.path.isfile(output_bqsr_file):
         
-        if os.path.isfile(output_trimming_file_r1) and os.path.isfile(output_trimming_file_r2):
-            print(YELLOW + DIM + output_trimming_file_r1 + " EXIST\nOmmiting Trimming for sample " + sample + END_FORMATTING)
-        else:
-            print(GREEN + "Trimming sample " + sample + END_FORMATTING)
-            bbduk_trimming(args)
+            args.r1_file = r1_file
+            args.r2_file = r2_file
 
-        #MAPPING WITH BWA - SAM TO SORTED BAM - ADD HEADER SG
-        #####################################################
-        out_map_dir = os.path.join(args.output, "Bam")
-        out_map_name = sample + ".rg.sorted.bam"
-        output_map_file = os.path.join(out_map_dir, out_map_name)
+            print("\n" + WHITE_BG + "STARTING SAMPLE: " + sample + END_FORMATTING)
 
-        out_markdup_name = sample + ".rg.markdup.sorted.bam"
-        output_markdup_file = os.path.join(out_map_dir, out_markdup_name)
+            ##############START PIPELINE#####################
+            #################################################
 
-        args.r1_file = output_trimming_file_r1
-        args.r2_file = output_trimming_file_r2
 
-        if os.path.isfile(output_map_file) or os.path.isfile(output_markdup_file):
-            print(YELLOW + DIM + output_map_file + " EXIST\nOmmiting Mapping for sample " + sample + END_FORMATTING)
-        else:
-            print(GREEN + "Mapping sample " + sample + END_FORMATTING)
-            print("R1: " + output_trimming_file_r1 + "\nR2: " + output_trimming_file_r2 + "\nReference: " + args.reference)
-            bwa_mapping(args)
-            sam_to_index_bam(args)
+            #INPUT ARGUMENTS
+            ################
+            check_file_exists(args.r1_file)
+            check_file_exists(args.r2_file)
 
-        #MARK DUPLICATES WITH PICARDTOOLS ###################
-        #####################################################
-        #TO DO: remove output_map_file and include markdup in previous step checking for existence of .rg.markdup.sorted.bam
-        #out_markdup_dir = os.path.join(args.output, "Bam")
-        out_markdup_name = sample + ".rg.markdup.sorted.bam"
-        output_markdup_file = os.path.join(out_map_dir, out_markdup_name)
+            args.output = os.path.abspath(args.output)
+            check_create_dir(args.output)
+            #QUALITY CHECK
+            ##############
+            """
+            TODO: Quality check 
+            """
+                    
+            #QUALITY TRIMMING AND ADAPTER REMOVAL WITH bbduk.sh
+            ###################################################
+            out_trim_name_r1 = sample + "_R1.clean.fastq.gz"
+            out_trim_name_r2 = sample + "_R2.clean.fastq.gz"
+            output_trimming_file_r1 = os.path.join(out_trim_dir, out_trim_name_r1)
+            output_trimming_file_r2 = os.path.join(out_trim_dir, out_trim_name_r2)
+            
+            if os.path.isfile(output_trimming_file_r1) and os.path.isfile(output_trimming_file_r2):
+                print(YELLOW + DIM + output_trimming_file_r1 + " EXIST\nOmmiting Trimming for sample " + sample + END_FORMATTING)
+            else:
+                print(GREEN + "Trimming sample " + sample + END_FORMATTING)
+                bbduk_trimming(args)
 
-        args.input_bam = output_map_file
+            #MAPPING WITH BWA - SAM TO SORTED BAM - ADD HEADER SG
+            #####################################################
+            out_map_name = sample + ".rg.sorted.bam"
+            output_map_file = os.path.join(out_map_dir, out_map_name)
 
-        if os.path.isfile(output_markdup_file):
-            print(YELLOW + DIM + output_markdup_file + " EXIST\nOmmiting Duplucate Mark for sample " + sample + END_FORMATTING)
-        else:
-            print(GREEN + "Marking Dupes in sample " + sample + END_FORMATTING)
-            print("Input Bam: " + args.input_bam)
-            picard_markdup(args)
+            out_markdup_name = sample + ".rg.markdup.sorted.bam"
+            output_markdup_file = os.path.join(out_map_dir, out_markdup_name)
+
+            args.r1_file = output_trimming_file_r1
+            args.r2_file = output_trimming_file_r2
+
+            if os.path.isfile(output_map_file) or os.path.isfile(output_markdup_file):
+                print(YELLOW + DIM + output_map_file + " EXIST\nOmmiting Mapping for sample " + sample + END_FORMATTING)
+            else:
+                print(GREEN + "Mapping sample " + sample + END_FORMATTING)
+                print("R1: " + output_trimming_file_r1 + "\nR2: " + output_trimming_file_r2 + "\nReference: " + args.reference)
+                bwa_mapping(args)
+                sam_to_index_bam(args)
+
+            #MARK DUPLICATES WITH PICARDTOOLS ###################
+            #####################################################
+            #TO DO: remove output_map_file and include markdup in previous step checking for existence of .rg.markdup.sorted.bam
+            out_markdup_name = sample + ".rg.markdup.sorted.bam"
+            output_markdup_file = os.path.join(out_map_dir, out_markdup_name)
+
+            args.input_bam = output_map_file
+
+            if os.path.isfile(output_markdup_file):
+                print(YELLOW + DIM + output_markdup_file + " EXIST\nOmmiting Duplucate Mark for sample " + sample + END_FORMATTING)
+            else:
+                print(GREEN + "Marking Dupes in sample " + sample + END_FORMATTING)
+                print("Input Bam: " + args.input_bam)
+                picard_markdup(args)
+            
+            #CALCULATE COVERAGE FOR EACH POSITION##################
+            #######################################################
+            out_cov_name = sample + ".cov"
+            output_cov_file = os.path.join(out_cov_dir, out_cov_name)
+
+            if os.path.isfile(output_cov_file):
+                print(YELLOW + DIM + output_cov_file + " EXIST\nOmmiting coverage calculation for sample " + sample + END_FORMATTING)
+            else:
+                print(GREEN + "Calculating coverage in sample " + sample + END_FORMATTING)
+                get_coverage(args, output_markdup_file, output_fmt="-d")
+            
+            #HAPLOTYPE CALL 1/2 FOR HARD FILTERING AND RECALIBRATION
+            #######################################################
+            out_gvcfr_name = sample + ".g.vcf"
+            output_gvcfr_file = os.path.join(out_gvcfr_dir, out_gvcfr_name)
+
+            if os.path.isfile(output_gvcfr_file):
+                print(YELLOW + DIM + output_gvcfr_file + " EXIST\nOmmiting Haplotype Call (Recall) for sample " + sample + END_FORMATTING)
+            else:
+                print(GREEN + "Haplotype Calling (Recall) in sample " + sample + END_FORMATTING)
+                haplotype_caller(args, recalibrate=True, ploidy=args.ploidy, bamout=False, forceactive=False)
         
-        #CALCULATE COVERAGE FOR EACH POSITION##################
-        #######################################################
-        out_cov_dir = os.path.join(args.output, "Coverage")
-        out_cov_name = sample + ".cov"
-        output_cov_file = os.path.join(out_cov_dir, out_cov_name)
-
-        if os.path.isfile(output_cov_file):
-            print(YELLOW + DIM + output_cov_file + " EXIST\nOmmiting coverage calculation for sample " + sample + END_FORMATTING)
         else:
-            print(GREEN + "Calculating coverage in sample " + sample + END_FORMATTING)
-            get_coverage(args, output_markdup_file, output_fmt="-d")
-        
-        #HAPLOTYPE CALL 1/2 FOR HARD FILTERING AND RECALIBRATION
-        #######################################################
-        out_gvcfr_dir = os.path.join(args.output, "GVCF_recal")
-        out_gvcfr_name = sample + ".g.vcf"
-        output_gvcfr_file = os.path.join(out_gvcfr_dir, out_gvcfr_name)
-
-        if os.path.isfile(output_gvcfr_file):
-            print(YELLOW + DIM + output_gvcfr_file + " EXIST\nOmmiting Haplotype Call (Recall) for sample " + sample + END_FORMATTING)
-        else:
-            print(GREEN + "Haplotype Calling (Recall) in sample " + sample + END_FORMATTING)
-            haplotype_caller(args, recalibrate=True, ploidy=args.ploidy, bamout=False, forceactive=False)
-"""
-        ###############################################################################################################################################
-        #############################FOR COMPARING PURPOSE#############################################################################################
-        ###############################################################################################################################################
-
-        #CALL VARIANTS 1/2 FOR HARD FILTERING AND RECALIBRATION
-        #######################################################
-        out_vcfr_dir = os.path.join(args.output, "VCF_recal")
-        out_vcfr_name = sample + ".raw.vcf"
-        output_vcfr_file = os.path.join(out_vcfr_dir, out_vcfr_name)
-
-        if os.path.isfile(output_vcfr_file):
-            print(YELLOW + DIM + output_vcfr_file + " EXIST\nOmmiting Variant Calling (Recall) for sample " + sample + END_FORMATTING)
-        else:
-            print(GREEN + "Variant Calling (Recall) in sample " + sample + END_FORMATTING)
-            call_variants(args, recalibrate=True, group=False)
-
-        #SELECT VARIANTS 1/2 FOR HARD FILTERING AND RECALIBRATION
-        #########################################################
-        out_vcfsnpr_name = sample + ".snp.vcf"
-        output_vcfsnpr_file = os.path.join(out_vcfr_dir, out_vcfsnpr_name)
-
-        if os.path.isfile(output_vcfsnpr_file):
-            print(YELLOW + DIM + output_vcfsnpr_file + " EXIST\nOmmiting Variant Selection (Recall) for sample " + sample + END_FORMATTING)
-        else:
-            print(GREEN + "Selecting Variants (Recall) in sample " + sample + END_FORMATTING)
-            select_variants(output_vcfr_file, select_type='SNP') #select_variants(output_vcfr_file, select_type='INDEL')
-        
-        #HARD FILTER VARIANTS 1/2 FOR RECALIBRATION #############
-        #########################################################
-        out_vcfhfsnpr_name = sample + ".snp.hf.vcf"
-        output_vcfhfsnpr_file = os.path.join(out_vcfr_dir, out_vcfhfsnpr_name)
-
-        if os.path.isfile(output_vcfhfsnpr_file):
-            print(YELLOW + DIM + output_vcfhfsnpr_file + " EXIST\nOmmiting Hard Filtering (Recall) for sample " + sample + END_FORMATTING)
-        else:
-            print(GREEN + "Hard Filtering Variants (Recall) in sample " + sample + END_FORMATTING)
-            hard_filter(output_vcfsnpr_file, select_type='SNP')
-"""
+            print(YELLOW + DIM + "\nOMMITING BAM HANDLING FOR SAMPLE " + sample + END_FORMATTING)
 
 
-
-group_name = output.split("/")[-1]
-print("\n\n" + BLUE + BOLD + "CHECKING LOW COVERED SAMPLES IN GROUP: " + group_name + END_FORMATTING + "\n")
 
 #GROUP COVERAGE SUMMARY STATS##########################
 #######################################################
+group_name = output.split("/")[-1]
+print("\n\n" + BLUE + BOLD + "CHECKING LOW COVERED SAMPLES IN GROUP: " + group_name + END_FORMATTING + "\n")
 
-out_covg_dir = os.path.join(args.output, "Coverage")
-out_covg_name = group_name + ".covegare.tab"
-output_covg_file = os.path.join(out_covg_dir, out_covg_name)
+out_cov_name = group_name + ".covegare.tab"
+output_cov_file = os.path.join(out_cov_dir, out_cov_name)
 """
 if os.path.isfile(output_covg_file):
     print(YELLOW + DIM + output_covg_file + " EXIST\nOmmiting group coverage calculation for group " + group_name + END_FORMATTING)
@@ -281,7 +257,7 @@ else:
     saples_low_covered = obtain_group_cov_stats(out_covg_dir, low_cov_threshold=20, unmmaped_threshold=20)
 """
 
-saples_low_covered = obtain_group_cov_stats(out_covg_dir, low_cov_threshold=20, unmmaped_threshold=20)
+saples_low_covered = obtain_group_cov_stats(out_cov_dir, low_cov_threshold=args.mincov, unmmaped_threshold=20)
 
 if len(saples_low_covered) > 0:
     print("\n" + YELLOW + BOLD + "There are sample(s) with low coverage that will be removed from the analysis: " + "\n"\
@@ -308,7 +284,6 @@ print("\n\n" + BLUE + BOLD + "STARTING JOINT CALL FOR RECALIBATION IN GROUP: " +
 
 #CALL VARIANTS 1/2 FOR HARD FILTERING AND RECALIBRATION
 #######################################################
-out_gvcfr_dir = os.path.join(args.output, "GVCF_recal")
 out_gvcfr_name = group_name + ".cohort.g.vcf"
 output_gvcfr_file = os.path.join(out_gvcfr_dir, out_gvcfr_name)
 
@@ -316,11 +291,10 @@ if os.path.isfile(output_gvcfr_file):
     print(YELLOW + DIM + output_gvcfr_file + " EXIST\nOmmiting GVCF Combination (Recall) for group " + group_name + END_FORMATTING)
 else:
     print(GREEN + "GVCF Combination (Recall) in group " + group_name + END_FORMATTING)
-    combine_gvcf(args, recalibrate=True, all_gvcf=args.enrich_gvcf)
+    combine_gvcf(args, recalibrate=True, all_gvcf=False)
 
 #CALL VARIANTS 1/2 FOR HARD FILTERING AND RECALIBRATION
 #######################################################
-out_vcfr_dir = os.path.join(args.output, "VCF_recal")
 out_vcfr_name = group_name + ".cohort.raw.vcf"
 output_vcfr_file = os.path.join(out_vcfr_dir, out_vcfr_name)
 
@@ -406,7 +380,6 @@ for r1_file, r2_file in zip(r1, r2):
 
         #HAPLOTYPE CALL 1/2 FOR HARD FILTERING AND RECALIBRATION
         #######################################################
-        out_gvcf_dir = os.path.join(args.output, "GVCF")
         out_gvcf_name = sample + ".g.vcf"
         output_gvcf_file = os.path.join(out_gvcf_dir, out_gvcf_name)
 
@@ -466,7 +439,6 @@ print("\n\n" + BLUE + BOLD + "STARTING JOINT CALL FOR FINAL CALL IN GROUP: " + g
 
 #CALL VARIANTS 2/2 FOR HARD FILTERING AND RECALIBRATION
 #######################################################
-out_gvcf_dir = os.path.join(args.output, "GVCF")
 out_gvcf_name = group_name + ".cohort.g.vcf"
 output_gvcf_file = os.path.join(out_gvcf_dir, out_gvcf_name)
 
@@ -478,7 +450,6 @@ else:
 
 #CALL VARIANTS 2/2 FOR HARD FILTERING AND RECALIBRATION
 #######################################################
-out_vcf_dir = os.path.join(args.output, "VCF")
 out_vcf_name = group_name + ".cohort.raw.vcf"
 output_vcf_file = os.path.join(out_vcf_dir, out_vcf_name)
 
@@ -558,7 +529,7 @@ for r1_file, r2_file in zip(r1, r2):
             print(YELLOW + DIM + output_final_vcf + " EXIST\nOmmiting Final filter for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Final filter in sample " + sample + END_FORMATTING)
-            vcf_consensus_filter(in_final_vcf,  distance=1, AF=0.75, QD=15, window_10=3)
+            vcf_consensus_filter(in_final_vcf,  distance=1, AF=0.75, QD=10, window_10=3)
 
 
 print("\n\n" + MAGENTA + BOLD + "VARIANT CALL FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")

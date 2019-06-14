@@ -409,7 +409,7 @@ def filter_vcf_list(raw_vcf, list_pos, name_out):
 
 
 
-def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3):
+def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=10, window_10=3):
     """
     Apply custom filter to individual vcf based on:
     AF
