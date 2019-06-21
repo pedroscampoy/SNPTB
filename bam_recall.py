@@ -227,7 +227,7 @@ def call_variants(args, recalibrate=False, group=True):
     """
     output = os.path.abspath(args.output)
 
-    #input_reference = os.path.abspath(args.reference)
+    input_reference = os.path.abspath(args.reference)
     
     file_name = args.sample #sample_name
     group_name = output.split("/")[-1] #group_name
@@ -252,10 +252,11 @@ def call_variants(args, recalibrate=False, group=True):
     check_create_dir(gvcf_input_dir)
     check_create_dir(vcf_output_dir)
 
-    cmd = ["gatk", "GenotypeGVCFs", 
+    cmd = ["gatk", "GenotypeGVCFs",
+    "--reference", input_reference,
     "--variant", gvcf_input_full,
     "--output", vcf_output_full]
-    #"--reference", input_reference,
+    
     execute_subprocess(cmd)
     
 

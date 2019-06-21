@@ -97,6 +97,7 @@ base_input = os.path.basename(args.input)
 linked_file = os.path.join(out_vcf_dir, base_input)
 
 check_remove_file(linked_file)
+
 os.symlink(output_vcf_file, linked_file)
 
 
