@@ -108,6 +108,27 @@ def get_picard_path():
 
     return picard_route.group()
 
+
+def get_snpeff_path():
+    type_route = subprocess.run(["whereis", "snpEff.jar"],stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, universal_newlines=True) 
+    snpeff_route = type_route.stdout.split(" ")
+    snpeff_jar = False
+    snpeff_config = False
+    for executable in snpeff_route:
+        print(executable)
+        executable = executable.strip()
+        if executable.endswith(".jar"):
+            snpeff_jar = executable
+        elif executable.endswith(".config"):
+            snpeff_config = executable
+    
+    if snpeff_jar and snpeff_config:
+        return snpeff_config, snpeff_jar
+    else:
+        print("some snpEff executables are missing")
+        sys.exit(1)
+
+
 def execute_subprocess(cmd):
     """
     https://crashcourse.housegordon.org/python-subprocess.html
@@ -271,3 +292,8 @@ def remove_low_covered(output_dir, sample_list):
                 for sample_low in sample_list:
                     if name.startswith(sample_low):
                         os.remove(filename)
+
+
+
+snpeff = get_snpeff_path()
+print(snpeff)
