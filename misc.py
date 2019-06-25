@@ -115,7 +115,6 @@ def get_snpeff_path():
     snpeff_jar = False
     snpeff_config = False
     for executable in snpeff_route:
-        print(executable)
         executable = executable.strip()
         if executable.endswith(".jar"):
             snpeff_jar = executable
@@ -293,7 +292,3 @@ def remove_low_covered(output_dir, sample_list):
                     if name.startswith(sample_low):
                         os.remove(filename)
 
-
-
-snpeff = get_snpeff_path()
-print(snpeff)

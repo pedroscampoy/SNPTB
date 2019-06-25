@@ -476,8 +476,8 @@ def recalibrate_bam(args, tb=True):
     if tb == True:
         script_dir = os.path.dirname(os.path.realpath(__file__))
         reference_dir = os.path.join(script_dir, "reference")
-        #reference_file = os.path.join(reference_dir, "190508_ddtb.BQSR.table")
-        reference_file = os.path.join(reference_dir, "190508_ddtb.NC_000962.3.BQSR.table") 
+        reference_file = os.path.join(reference_dir, "190508_ddtb.BQSR.table")
+        #reference_file = os.path.join(reference_dir, "190508_ddtb.NC_000962.3.BQSR.table") 
         cmd_bqsr.append("--known-sites")
         cmd_bqsr.append(reference_file)
 

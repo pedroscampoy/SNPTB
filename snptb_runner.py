@@ -14,6 +14,7 @@ from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplot
     select_variants, hard_filter, combine_gvcf, select_pass, select_pass_variants, recalibrate_bam, \
     split_vcf_saples
 from vcf_process import vcf_consensus_filter
+from annotation import replace_reference, snpeff_annotation, final_annotation
 
 """
 =============================================================
@@ -133,7 +134,7 @@ out_gvcfr_dir = os.path.join(args.output, "GVCF_recal")
 out_vcfr_dir = os.path.join(args.output, "VCF_recal")
 out_gvcf_dir = os.path.join(args.output, "GVCF")
 out_vcf_dir = os.path.join(args.output, "VCF")
-
+out_annot_dir = os.path.join(args.output, "Annotation")
 
 
 
@@ -390,45 +391,7 @@ for r1_file, r2_file in zip(r1, r2):
         else:
             print(GREEN + "Haplotype Calling in sample " + sample + END_FORMATTING)
             haplotype_caller(args, recalibrate=False, ploidy=args.ploidy, bamout=False, forceactive=False)
-"""
-        ###############################################################################################################################################
-        #############################FOR COMPARING PURPOSE#############################################################################################
-        ###############################################################################################################################################
 
-        #CALL VARIANTS 2/2 FOR HARD FILTERING AND RECALIBRATION
-        #######################################################
-        out_vcf_dir = os.path.join(args.output, "VCF")
-        out_vcf_name = sample + ".raw.vcf"
-        output_vcf_file = os.path.join(out_vcf_dir, out_vcf_name)
-
-        if os.path.isfile(output_vcf_file):
-            print(YELLOW + DIM + output_vcf_file + " EXIST\nOmmiting Variant Calling for sample " + sample + END_FORMATTING)
-        else:
-            print(GREEN + "Variant Calling in sample " + sample + END_FORMATTING)
-            call_variants(args, recalibrate=False, group=False)
-
-        #SELECT VARIANTS 2/2 FOR HARD FILTERING AND RECALIBRATION
-        #########################################################
-        out_vcfsnp_name = sample + ".snp.vcf"
-        output_vcfsnp_file = os.path.join(out_vcf_dir, out_vcfsnp_name)
-
-        if os.path.isfile(output_vcfsnp_file):
-            print(YELLOW + DIM + output_vcfsnp_file + " EXIST\nOmmiting Variant Selection for sample " + sample + END_FORMATTING)
-        else:
-            print(GREEN + "Selecting Variants in sample " + sample + END_FORMATTING)
-            select_variants(output_vcf_file, select_type='SNP') #select_variants(output_vcfr_file, select_type='INDEL')
-
-        #HARD FILTER VARIANTS 2/2 FOR RECALIBRATION #############
-        #########################################################
-        out_vcfhfsnp_name = sample + ".snp.hf.vcf"
-        output_vcfhfsnp_file = os.path.join(out_vcf_dir, out_vcfhfsnp_name)
-
-        if os.path.isfile(output_vcfhfsnp_file):
-            print(YELLOW + DIM + output_vcfhfsnp_file + " EXIST\nOmmiting Hard Filtering for sample " + sample + END_FORMATTING)
-        else:
-            print(GREEN + "Hard Filtering Variants in sample " + sample + END_FORMATTING)
-            hard_filter(output_vcfsnp_file, select_type='SNP')
-"""
 #ONCE ALL GVCF VARIANTS ARE CALLED, THEY ARE GATHERED AND FILTERED 
 # FOR FINAL CALLING
 ######################################################################
@@ -533,6 +496,34 @@ for r1_file, r2_file in zip(r1, r2):
 
 
 print("\n\n" + MAGENTA + BOLD + "VARIANT CALL FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")
+
+
+print("\n\n" + BLUE + BOLD + "STARTING ANNOTATION IN GROUP: " + group_name + END_FORMATTING + "\n")
+
+
+for root, _, files in os.walk(out_vcf_dir):
+        for name in files:
+            filename = os.path.join(root, name)
+            output_path = os.path.join(out_annot_dir, name)
+            if filename.endswith(".final.vcf"):
+                replace_reference(filename, "MTB_anc", "Chromosome", output_path)
+                snpeff_annotation(args, output_path, database="Mycobacterium_tuberculosis_h37rv")
+                vcf_path = (".").join(output_path.split(".")[:-1])
+                annot_vcf = vcf_path + ".annot"
+                final_annotation(annot_vcf)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 """
 #./snptb_runner.py -i /home/laura/ANALYSIS/Lofreq/coinfection_designed/raw -r reference/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_designed/TEST -s sample_list.txt
