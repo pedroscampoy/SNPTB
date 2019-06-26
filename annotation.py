@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import re
 import subprocess
+from tabulate import tabulate
 from misc import get_snpeff_path, check_create_dir
 from vcf_process import calculate_ALT_AD, obtain_output_dir
 
@@ -211,6 +212,8 @@ def add_lineage_Coll(vcf_df):
                 }
     list_lineage = []
     
+    vcf_df['Lineage'] = np.nan
+
     for index, _ in vcf_df.iterrows():
         position = str(vcf_df.loc[index,'POS'])
         if position in dict_lineage_position.keys():
@@ -602,6 +605,8 @@ def add_resistance_snp(vcf_df):
 
     list_resistance = []
     
+    vcf_df['Resistance'] = np.nan
+
     for index, _ in vcf_df.iterrows():
         position = int(vcf_df.loc[index,'POS'])
         alt_nucleotide = str(vcf_df.loc[index,'ALT'])
@@ -622,6 +627,7 @@ def add_resistance_snp(vcf_df):
             if alt_nucleotide in nucleotides:
                 snp_resist = alt_nucleotide #ALT
                 resistance = dict_resistance_position[int(position)][1] #Resist name
+                list_resistance.append(resistance)
                 list_resistance.append(str(position)) #POS
                 list_resistance.append(snp_resist)
                 #Evaluate High confidence
@@ -635,11 +641,37 @@ def add_resistance_snp(vcf_df):
             list_resistance.append("\t")
     #list_resistance.append(resistance + "\n")
     
-    if len(list_resistance) > 0:
+    if len(list_resistance) > 3:
         print("This strain has resistance positions:\n:" + ",".join(list_resistance))
         return ",".join(list_resistance)
     else:
         print("No resistance were found\n")
+
+
+def add_essential_cateory(row):
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    annotation_dir = os.path.join(script_dir, "annotation/genes")
+    essential_file = os.path.join(annotation_dir, "dict_locus_essential.txt")
+    dict_essential = {}
+    with open(essential_file, 'r') as f:
+        for line in f:
+            dict_essential[line.split(":")[0]] = line.split(":")[1].strip()
+    if row.Gene_ID in dict_essential.keys():
+        if dict_essential[row.Gene_ID] == "essential":
+            return "essential"
+        else:
+            return "nonessential"
+
+def add_product_cateory(row):
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    annotation_dir = os.path.join(script_dir, "annotation/genes")
+    product_file = os.path.join(annotation_dir, "dict_locus_product.txt")
+    dict_product = {}
+    with open(product_file, 'r') as f:
+        for line in f:
+            dict_product[line.split(":")[0]] = (":").join(line.split(":")[1:]).strip()
+    if row.Gene_ID in dict_product.keys():
+        return dict_product[row.Gene_ID]
 
 
 def final_annotation(vcf_file_annot):
@@ -658,7 +690,12 @@ def final_annotation(vcf_file_annot):
     #extend_raw = ".raw.annot.tab"
     extend_final = ".annot.tsv"
 
-    
+    #Add essential info
+    df_vcf['Is_essential'] = df_vcf.apply(add_essential_cateory, axis=1)
+
+    #Add protein product
+    df_vcf['Product'] = df_vcf.apply(add_product_cateory, axis=1)
+
     #Add lineage info 
     add_lineage_Coll(df_vcf)
 
@@ -670,7 +707,7 @@ def final_annotation(vcf_file_annot):
     df_vcf_annot = df_vcf[['#CHROM', 'POS', 'ID', 'REF', 'ALT','Annotation',
        'Annotation_Impact', 'Gene_Name', 'Gene_ID', 'Feature_Type',
        'Feature_ID', 'Transcript_BioType', 'Rank', 'HGVS.c', 'HGVS.p',
-       'cDNA.pos / cDNA.length', 'CDS.pos / CDS.length', 'AA.pos / AA.length','Lineage', 'Resistance']]
+       'cDNA.pos / cDNA.length', 'CDS.pos / CDS.length', 'AA.pos / AA.length','Is_essential','Product', 'Lineage', 'Resistance']]
     
     #output all raw info into a file
     new_out_file = tab_name + extend_final
@@ -678,5 +715,139 @@ def final_annotation(vcf_file_annot):
     df_vcf_annot.to_csv(output_raw_tab, sep='\t', index=False)
     
 
-    #final_vcf_name = tab_name + extend_final
-    #filter_vcf_list(vcf_path, list_positions_to_filter, final_vcf_name)
+def get_reverse(nucleotyde):
+    nucleotyde = str(nucleotyde)
+    nucleotyde_rev = {'A' : 'T',
+                     'T' : 'A',
+                     'C' : 'G',
+                     'G': 'C'}
+    return nucleotyde_rev[nucleotyde]
+
+
+def create_report(tab_annot, species="Mycobacterium tuberculosis"):
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    annotation_dir = os.path.join(script_dir, "annotation/resistance")
+
+    table_res = os.path.join(annotation_dir, "MTB_Resistance_Mediating.txt")
+    df_res = pd.read_csv(table_res, sep="\t", header=0)
+    df_res['High Confidence SNP'].fillna("no", inplace=True)
+
+
+    output = os.path.dirname(tab_annot)
+    sample = os.path.basename(tab_annot).split(".")[0]
+    report_name = sample + ".annot.report.html"
+
+    output_file = os.path.join(output, report_name)
+    
+
+    css = """
+
+    <style type="text/css">
+
+    body {
+        font: normal 20px Verdana, Arial, sans-serif;
+    }
+
+    table {
+        text-align: center;
+        border-color: #000;
+        border-spacing: 0px;
+        border-style: solid;
+        border-width: 1px;
+    }
+
+    th, td {
+    border-bottom: 1px solid #ddd;
+    }
+
+    th {
+    background-color: rgb(76, 175, 170);
+    }
+
+    tr:hover {background-color:#7c7b7b;}
+    tr:nth-child(even) {background-color: #cecccc;}
+
+    </style>
+
+    """
+
+
+    with open(output_file, 'w+') as f:
+        f.write(css)
+
+        line_sample = "Sample name: " + sample + "<br /><br />"
+        f.write(line_sample)
+        
+        line_species = "Species: " + "<i>" + str(species) + "</i>" + "<br /><br />"
+        f.write(line_species)
+
+        df_annot = pd.read_csv(tab_annot, sep="\t", header=0)
+        
+        list_resistance = df_annot['Resistance'][df_annot.Resistance.notnull()].tolist()
+        list_lineage = df_annot['Lineage'][df_annot.Lineage.notnull()].tolist()
+        
+        #Output Lineage info
+        if len(list_lineage) > 0:
+            list_lineage.sort(reverse=True)
+            asterix = ""
+            for sublineage_n in range(len(list_lineage)):
+                if sublineage_n < (len(list_lineage) - 1):
+                    if list_lineage[sublineage_n].startswith(list_lineage[sublineage_n + 1]):
+                        asterix = asterix + "*"
+            final_lineage = str(list_lineage[0]) + " " + asterix
+            line_lineage = "This strain has lineage position(s): " + "<b>" + final_lineage + "</b>" + "<br /><br />"
+            f.write(line_lineage)
+        else:
+            line_lineage = "No lineage were found<br /><br />"
+            f.write(line_lineage)
+        
+        #Output Resistance info
+        if len(list_resistance) > 0:
+            line_res_1 = "This strain has " + str(len(list_resistance)) + " resistance position(s):<br />"
+            f.write(line_res_1)
+            
+            additional_resistance = []
+
+            final_res_table = pd.DataFrame(columns= df_res.columns.tolist())
+            
+
+            for index, _ in df_annot[df_annot.Resistance.notnull()].iterrows():
+                position = str(df_annot.loc[index,'POS'])
+                resistance_name = df_annot.loc[index,'Resistance'].strip("*")
+                if df_annot.loc[index,'Gene_ID'].endswith("c"):
+                    alt_nucleotide = get_reverse(df_annot.loc[index,'ALT']).lower()
+                else:
+                    alt_nucleotide = df_annot.loc[index,'ALT'].lower()
+                    
+                    
+                if position in df_res['Variant position genome stop'].values.tolist():
+                    row = df_res[(df_res['Var. base'] == alt_nucleotide) & (df_res['Variant position genome stop'] == position)]
+                    index = row.index[0]
+                    final_res_table = final_res_table.append(df_res.iloc[index], ignore_index=True)
+                else:
+                    other_resistances = position + " " + alt_nucleotide + " " + resistance_name
+                    additional_resistance.append(other_resistances)
+                
+            
+            final_res_table.reset_index(drop=True, inplace=True)
+            final_res_table_F = final_res_table[['Variant position genome stop', 'Var. base',
+                                                'Region', 'Gene ID', 'Gene Name','Gene start',
+                                                'Gene stop','Gene length', 'Dir.',
+                                                'AA change', 'Codon change', 'Antibiotic',
+                                                'High Confidence SNP'
+                                                ]]
+            #df.rename(columns={'oldName1': 'newName1', 'oldName2': 'newName2'}, inplace=True)
+            final_res_table_F.columns = ['Position', 'Alt. base',
+                                                'Region', 'Gene ID', 'Gene Name','Gene start',
+                                                'Gene stop','Gene length', 'Dir.',
+                                                'AA change', 'Codon change', 'Antibiotic',
+                                                'High Confidence'
+                                                ]
+            f.write(tabulate(final_res_table_F, headers='keys', tablefmt='html', showindex=False))
+            if len(additional_resistance) > 0:
+                f.write("<br /><br />")
+                f.write("Found other putative resistances:<br />")
+                line_other_res = ("<br />").join(additional_resistance)
+                f.write(line_other_res)
+        else:
+            f.write("No Resistance were found<br />")

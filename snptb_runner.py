@@ -14,7 +14,7 @@ from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplot
     select_variants, hard_filter, combine_gvcf, select_pass, select_pass_variants, recalibrate_bam, \
     split_vcf_saples
 from vcf_process import vcf_consensus_filter
-from annotation import replace_reference, snpeff_annotation, final_annotation
+from annotation import replace_reference, snpeff_annotation, final_annotation, create_report
 
 """
 =============================================================
@@ -502,28 +502,31 @@ print("\n\n" + BLUE + BOLD + "STARTING ANNOTATION IN GROUP: " + group_name + END
 
 
 for root, _, files in os.walk(out_vcf_dir):
-        for name in files:
-            filename = os.path.join(root, name)
-            output_path = os.path.join(out_annot_dir, name)
-            if filename.endswith(".final.vcf"):
-                replace_reference(filename, "MTB_anc", "Chromosome", output_path)
-                snpeff_annotation(args, output_path, database="Mycobacterium_tuberculosis_h37rv")
-                vcf_path = (".").join(output_path.split(".")[:-1])
-                annot_vcf = vcf_path + ".annot"
-                final_annotation(annot_vcf)
+    for name in files:
+        filename = os.path.join(root, name)
+        output_path = os.path.join(out_annot_dir, name)
+        if filename.endswith(".final.vcf"):
+            sample = name.split(".")[0]
+            print(GREEN + "Annotating sample " + sample + END_FORMATTING)
+            replace_reference(filename, "MTB_anc", "Chromosome", output_path)
+            snpeff_annotation(args, output_path, database="Mycobacterium_tuberculosis_h37rv")
+            vcf_path = (".").join(output_path.split(".")[:-1])
+            annot_vcf = vcf_path + ".annot"
+            final_annotation(annot_vcf)
 
 
 
+print("\n\n" + BLUE + BOLD + "STARTING REPORT IN GROUP: " + group_name + END_FORMATTING + "\n")
 
+for root, _, files in os.walk(out_annot_dir):
+    for name in files:
+        filename = os.path.join(root, name)
+        output_path = os.path.join(out_annot_dir, name)
+        if filename.endswith("final.annot.tsv"):
+            create_report(filename, species="Mycobacterium tuberculosis")
+            
 
-
-
-
-
-
-
-
-
+print("\n\n" + MAGENTA + BOLD + "ANNOTATION FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")
 
 """
 #./snptb_runner.py -i /home/laura/ANALYSIS/Lofreq/coinfection_designed/raw -r reference/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_designed/TEST -s sample_list.txt

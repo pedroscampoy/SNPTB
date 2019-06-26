@@ -268,17 +268,17 @@ def obtain_group_cov_stats(directory, low_cov_threshold=20, unmmaped_threshold=2
     saples_low_covered = []
 
     with open(output_file, "w") as outfile:
-        outfile.write("#SAMPLE" + "\t" + "MEAN_COV" + "\t" + "UNMMAPED_PROP" + "\n")
-        for root, _, files in os.walk(directory_path):
-            for name in files:
-                filename = os.path.join(root, name)
-                file_name_cov = os.path.basename(filename)
-                sample = file_name_cov.split(".")[0]
-                if filename.endswith(".cov") and (os.path.getsize(filename) > 0):
-                    mean_cov, unmmaped_prop = calculate_cov_stats(filename)
-                    if float(mean_cov) < low_cov_threshold or float(unmmaped_prop) > unmmaped_threshold:
-                         saples_low_covered.append(sample)
-                    outfile.write("%s\t%s\t%s\n" % (sample, mean_cov, unmmaped_prop))
+            outfile.write("#SAMPLE" + "\t" + "MEAN_COV" + "\t" + "UNMMAPED_PROP" + "\n")
+            for root, _, files in os.walk(directory_path):
+                for name in files:
+                    filename = os.path.join(root, name)
+                    file_name_cov = os.path.basename(filename)
+                    sample = file_name_cov.split(".")[0]
+                    if filename.endswith(".cov") and (os.path.getsize(filename) > 0):
+                        mean_cov, unmmaped_prop = calculate_cov_stats(filename)
+                        if float(mean_cov) < low_cov_threshold or float(unmmaped_prop) > unmmaped_threshold:
+                            saples_low_covered.append(sample)
+                        outfile.write("%s\t%s\t%s\n" % (sample, mean_cov, unmmaped_prop))
 
     return saples_low_covered
 
