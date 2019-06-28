@@ -167,7 +167,7 @@ def add_lineage_Coll(vcf_df):
         '3722702' : ['C', '3.1.2'],
         '1237818' : ['G', '3.1.2.1'],
         '2874344' : ['A', '3.1.2.2'],
-        '931123' : ['C', '4**'],
+        '931123' : ['T', '4'],
         '62657' : ['A', '4.1'],
         '514245' : ['T', '4.1.1'],
         '1850119' : ['T', '4.1.1.1'],
@@ -203,7 +203,7 @@ def add_lineage_Coll(vcf_df):
         '2875883' : ['T', '4.6.2.2'],
         '4249732' : ['G', '4.7'],
         '3836739' : ['A', '4.8'],
-        '1759252' : ['T', '4.9**'],
+        '1759252' : ['G', '4.9'],
         '1799921' : ['A', '5'],
         '1816587' : ['G', '6'],
         '1137518' : ['A', '7'],
@@ -227,7 +227,7 @@ def add_lineage_Coll(vcf_df):
         asterix = ""
         for sublineage_n in range(len(list_lineage)):
             if sublineage_n < (len(list_lineage) - 1):
-                if list_lineage[sublineage_n].startswith(list_lineage[sublineage_n + 1]):
+                if str(list_lineage[sublineage_n]).startswith(str(list_lineage[sublineage_n + 1])):
                     asterix = asterix + "*"
         final_lineage = list_lineage[0] + " " + asterix
         print("This strain has lineage position(s):\n: " + " ".join([list_lineage[0],asterix]))
@@ -725,6 +725,10 @@ def get_reverse(nucleotyde):
 
 
 def create_report(tab_annot, species="Mycobacterium tuberculosis"):
+    #<div style="position: absolute; bottom: 5px; color: red; background-color: rgb(253, 253, 253)">
+    #Text disclaimer 
+    #</div>
+
     script_dir = os.path.dirname(os.path.realpath(__file__))
     annotation_dir = os.path.join(script_dir, "annotation/resistance")
 
@@ -764,8 +768,8 @@ def create_report(tab_annot, species="Mycobacterium tuberculosis"):
     background-color: rgb(76, 175, 170);
     }
 
-    tr:hover {background-color:#7c7b7b;}
     tr:nth-child(even) {background-color: #cecccc;}
+    tr:hover {background-color:#7c7b7b;}
 
     </style>
 
@@ -773,6 +777,7 @@ def create_report(tab_annot, species="Mycobacterium tuberculosis"):
 
 
     with open(output_file, 'w+') as f:
+
         f.write(css)
 
         line_sample = "Sample name: " + sample + "<br /><br />"
@@ -792,13 +797,13 @@ def create_report(tab_annot, species="Mycobacterium tuberculosis"):
             asterix = ""
             for sublineage_n in range(len(list_lineage)):
                 if sublineage_n < (len(list_lineage) - 1):
-                    if list_lineage[sublineage_n].startswith(list_lineage[sublineage_n + 1]):
+                    if str(list_lineage[sublineage_n]).startswith(str(list_lineage[sublineage_n + 1])):
                         asterix = asterix + "*"
-            final_lineage = str(list_lineage[0]) + " " + asterix
+            final_lineage = str(list_lineage[0]) #+ " " + asterix
             line_lineage = "This strain has lineage position(s): " + "<b>" + final_lineage + "</b>" + "<br /><br />"
             f.write(line_lineage)
         else:
-            line_lineage = "No lineage were found<br /><br />"
+            line_lineage = "No lineage positions were found<br /><br />"
             f.write(line_lineage)
         
         #Output Resistance info
@@ -850,4 +855,7 @@ def create_report(tab_annot, species="Mycobacterium tuberculosis"):
                 line_other_res = ("<br />").join(additional_resistance)
                 f.write(line_other_res)
         else:
-            f.write("No Resistance were found<br />")
+            f.write("No Resistance positions were found<br />")
+
+        f.write("<br /><br />Este informe debe ser utilizado exclusivamente con fines de investigación. No utilizar ningún dato con fines asistenciales.<br />")
+

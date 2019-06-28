@@ -73,7 +73,7 @@ def get_arguments():
 
     gatk_group.add_argument('-p', '--ploidy', type=str, required=False, default=2, help='Set ploidy when HC call, default 2')
     gatk_group.add_argument('-E', '--enrich_gvcf', required=False,  default=False, help='Point a directory with g.vcf files to enrich the analysis')
-
+    gatk_group.add_argument('-A', '--all_cohort', required=False,  action='store_true', help='Output vcf of all samples instead of just the one inputted before cohort')
 
     vcf_group = parser.add_argument_group('VCF filters', 'parameters for variant filtering')
 
@@ -93,6 +93,9 @@ def get_arguments():
     return arguments
 
 args = get_arguments()
+
+print(args)
+
 
 #Obtain all R1 and R2 from folder
 r1, r2 = extract_read_list(args.input_dir)
@@ -250,13 +253,13 @@ print("\n\n" + BLUE + BOLD + "CHECKING LOW COVERED SAMPLES IN GROUP: " + group_n
 
 out_cov_name = group_name + ".covegare.tab"
 output_cov_file = os.path.join(out_cov_dir, out_cov_name)
-"""
-if os.path.isfile(output_covg_file):
-    print(YELLOW + DIM + output_covg_file + " EXIST\nOmmiting group coverage calculation for group " + group_name + END_FORMATTING)
+
+if os.path.isfile(output_cov_file):
+    print(YELLOW + DIM + output_cov_file + " EXIST\nOmmiting group coverage calculation for group " + group_name + END_FORMATTING)
 else:
     print(GREEN + "Group coverage stats in group " + group_name + END_FORMATTING)
-    saples_low_covered = obtain_group_cov_stats(out_covg_dir, low_cov_threshold=20, unmmaped_threshold=20)
-"""
+    saples_low_covered = obtain_group_cov_stats(out_cov_dir, low_cov_threshold=20, unmmaped_threshold=20)
+
 
 saples_low_covered = obtain_group_cov_stats(out_cov_dir, low_cov_threshold=args.mincov, unmmaped_threshold=20)
 
@@ -467,8 +470,10 @@ else:
     select_pass_variants(output_vcfhfsnp_file, nocall_fr=0.2)
     select_pass_variants(output_vcfhfindel_file, nocall_fr=0.2)
 
-
-split_vcf_saples(output_vcfhfsnppass_file, sample_list=sample_list_F)
+if args.all_cohort == True:
+    split_vcf_saples(output_vcfhfsnppass_file, sample_list=False)
+else:
+    split_vcf_saples(output_vcfhfsnppass_file, sample_list=sample_list_F)
 
 
 
@@ -528,7 +533,6 @@ for root, _, files in os.walk(out_annot_dir):
 
 print("\n\n" + MAGENTA + BOLD + "ANNOTATION FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")
 
-"""
+
 #./snptb_runner.py -i /home/laura/ANALYSIS/Lofreq/coinfection_designed/raw -r reference/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_designed/TEST -s sample_list.txt
 #/home/laura/DEVELOP/SNPTB/snptb_runner.py -i /home/laura/RAW/Mixtas_Italia/ -r /home/laura/DATABASES/REFERENCES/ancestorII/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_italy/
-"""
