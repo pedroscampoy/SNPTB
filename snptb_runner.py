@@ -12,7 +12,7 @@ from bbduk_trimmer import bbduk_trimming
 from pe_mapper import bwa_mapping, sam_to_index_bam
 from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplotype_caller, call_variants, \
     select_variants, hard_filter, combine_gvcf, select_pass, select_pass_variants, recalibrate_bam, \
-    split_vcf_saples
+    samples_from_vcf,split_vcf_saples
 from vcf_process import vcf_consensus_filter
 from annotation import replace_reference, snpeff_annotation, final_annotation, create_report
 

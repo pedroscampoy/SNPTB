@@ -228,11 +228,15 @@ def call_variants(args, recalibrate=False, group=True):
     output = os.path.abspath(args.output)
 
     input_reference = os.path.abspath(args.reference)
-    
+
+    if not args.sample:
+        args.sample = "nosample"
+
     file_name = args.sample #sample_name
     group_name = output.split("/")[-1] #group_name
 
     if recalibrate:
+        
         gvcf_input_dir = obtain_output_dir(args, "GVCF_recal")
         vcf_output_dir = obtain_output_dir(args, "VCF_recal")
     else:
@@ -240,11 +244,11 @@ def call_variants(args, recalibrate=False, group=True):
         vcf_output_dir = obtain_output_dir(args, "VCF")
 
     if group:
-            gvcf_input_file = group_name + ".cohort.g.vcf"
-            vcf_output_file = group_name + ".cohort.raw.vcf"
+        gvcf_input_file = group_name + ".cohort.g.vcf"
+        vcf_output_file = group_name + ".cohort.raw.vcf"
     else:
-            gvcf_input_file = file_name + ".g.vcf"
-            vcf_output_file = file_name + ".raw.vcf"
+        gvcf_input_file = file_name + ".g.vcf"
+        vcf_output_file = file_name + ".raw.vcf"
 
     gvcf_input_full = os.path.join(gvcf_input_dir, gvcf_input_file)
     vcf_output_full = os.path.join(vcf_output_dir, vcf_output_file)
@@ -504,6 +508,11 @@ def recalibrate_bam(args, tb=True):
     execute_subprocess(cmd_apply)
 
 
+def samples_from_vcf(vcf_file):
+    samples = subprocess.run(["bcftools", "query", "-l", vcf_file],stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, universal_newlines=True)
+    sample_list = samples.stdout.split("\n")[:-1]
+    return sample_list
+
 def split_vcf_saples(vcf_file, sample_list=False):
     """
     https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_variantutils_SelectVariants.php
@@ -512,8 +521,9 @@ def split_vcf_saples(vcf_file, sample_list=False):
     """
     
     if sample_list == False:
-        samples = subprocess.run(["bcftools", "query", "-l", vcf_file],stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, universal_newlines=True)
-        sample_list = samples.stdout.split("\n")[:-1]
+        #samples = subprocess.run(["bcftools", "query", "-l", vcf_file],stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, universal_newlines=True)
+        #sample_list = samples.stdout.split("\n")[:-1]
+        sample_list = samples_from_vcf(vcf_file)
     else:
         sample_list = sample_list
     
@@ -534,3 +544,37 @@ def split_vcf_saples(vcf_file, sample_list=False):
         "--output", output_vcf_file]
 
         execute_subprocess(cmd)
+
+def combine_gvcf_folder(args, gvcf_input_dir, sample_list=False):
+    """
+    https://software.broadinstitute.org/gatk/documentation/tooldocs/4.1.2.0/org_broadinstitute_hellbender_tools_walkers_CombineGVCFs.php
+    #combined multi-sample gVCF:
+    gatk CombineGVCFs -R reference.fasta --variant sample1.g.vcf.gz --variant sample2.g.vcf.gz -O cohort.g.vcf.gz
+    """
+    output = os.path.abspath(args.output)
+    gvcf_input_dir = os.path.abspath(gvcf_input_dir)
+    input_reference = os.path.abspath(args.reference)
+    
+    group_name = output.split("/")[-1] #group_name
+
+    gvcf_output_dir = obtain_output_dir(args, "GVCF")
+    gvcf_output_file = group_name + ".cohort.g.vcf"
+    gvcf_output_full = os.path.join(gvcf_output_dir, gvcf_output_file)
+
+    check_create_dir(gvcf_output_dir)
+
+    cmd = ["gatk", "CombineGVCFs", 
+    "--reference", input_reference,
+    "--output", gvcf_output_full]
+
+    if os.path.isdir(gvcf_input_dir):
+        for root, _, files in os.walk(gvcf_input_dir):
+            for name in files:
+                filename = os.path.join(root, name)
+                if filename.endswith(".g.vcf"):
+                    cmd.append("--variant")
+                    cmd.append(filename)
+    else:
+        print("GVCF enrichment folder does not exist")
+
+    execute_subprocess(cmd)

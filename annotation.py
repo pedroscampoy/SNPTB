@@ -788,7 +788,12 @@ def create_report(tab_annot, species="Mycobacterium tuberculosis"):
 
         df_annot = pd.read_csv(tab_annot, sep="\t", header=0)
         
+        df_resistance = df_annot[df_annot.Resistance.notnull()]
+        df_resistance_F = df_resistance[['POS', 'ALT', 'Annotation', 'Gene_ID', 'Gene_Name', 'HGVS.c', 'HGVS.p', 'Resistance']]
+        df_resistance_F.columns = ['Position', 'Alt. base', 'Region', 'Gene ID', 'Gene Name', 'AA change', 'Codon change', 'Resistance']
         list_resistance = df_annot['Resistance'][df_annot.Resistance.notnull()].tolist()
+
+
         list_lineage = df_annot['Lineage'][df_annot.Lineage.notnull()].tolist()
         
         #Output Lineage info
@@ -814,8 +819,7 @@ def create_report(tab_annot, species="Mycobacterium tuberculosis"):
             additional_resistance = []
 
             final_res_table = pd.DataFrame(columns= df_res.columns.tolist())
-            
-
+            """
             for index, _ in df_annot[df_annot.Resistance.notnull()].iterrows():
                 position = str(df_annot.loc[index,'POS'])
                 resistance_name = df_annot.loc[index,'Resistance'].strip("*")
@@ -829,31 +833,34 @@ def create_report(tab_annot, species="Mycobacterium tuberculosis"):
                     row = df_res[(df_res['Var. base'] == alt_nucleotide) & (df_res['Variant position genome stop'] == position)]
                     index = row.index[0]
                     final_res_table = final_res_table.append(df_res.iloc[index], ignore_index=True)
+                    #df_resistance_F.drop(df_resistance_F.iloc[index])
                 else:
+                    #df_resistance_F.drop(df_resistance_F.index[index])
                     other_resistances = position + " " + alt_nucleotide + " " + resistance_name
                     additional_resistance.append(other_resistances)
                 
             
             final_res_table.reset_index(drop=True, inplace=True)
             final_res_table_F = final_res_table[['Variant position genome stop', 'Var. base',
-                                                'Region', 'Gene ID', 'Gene Name','Gene start',
-                                                'Gene stop','Gene length', 'Dir.',
-                                                'AA change', 'Codon change', 'Antibiotic',
-                                                'High Confidence SNP'
+                                                'Region', 'Gene ID', 'Gene Name',
+                                                'AA change', 'Codon change', 'Antibiotic'
                                                 ]]
             #df.rename(columns={'oldName1': 'newName1', 'oldName2': 'newName2'}, inplace=True)
             final_res_table_F.columns = ['Position', 'Alt. base',
-                                                'Region', 'Gene ID', 'Gene Name','Gene start',
-                                                'Gene stop','Gene length', 'Dir.',
-                                                'AA change', 'Codon change', 'Antibiotic',
-                                                'High Confidence'
+                                                'Region', 'Gene ID', 'Gene Name',
+                                                'AA change', 'Codon change', 'Antibiotic'
                                                 ]
             f.write(tabulate(final_res_table_F, headers='keys', tablefmt='html', showindex=False))
             if len(additional_resistance) > 0:
                 f.write("<br /><br />")
                 f.write("Found other putative resistances:<br />")
+                f.write(tabulate(df_resistance_F, headers='keys', tablefmt='html', showindex=False))
                 line_other_res = ("<br />").join(additional_resistance)
                 f.write(line_other_res)
+            
+            """
+            f.write(tabulate(df_resistance_F, headers='keys', tablefmt='html', showindex=False))
+
         else:
             f.write("No Resistance positions were found<br />")
 
