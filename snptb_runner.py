@@ -14,7 +14,7 @@ from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplot
     select_variants, hard_filter, combine_gvcf, select_pass, select_pass_variants, recalibrate_bam, \
     samples_from_vcf,split_vcf_saples
 from vcf_process import vcf_consensus_filter
-from annotation import replace_reference, snpeff_annotation, final_annotation, create_report
+from annotation import replace_reference, snpeff_annotation, final_annotation, create_report, css_report
 
 """
 =============================================================
@@ -523,13 +523,21 @@ for root, _, files in os.walk(out_vcf_dir):
 
 print("\n\n" + BLUE + BOLD + "STARTING REPORT IN GROUP: " + group_name + END_FORMATTING + "\n")
 
-for root, _, files in os.walk(out_annot_dir):
-    for name in files:
-        filename = os.path.join(root, name)
-        output_path = os.path.join(out_annot_dir, name)
-        if filename.endswith("final.annot.tsv"):
-            create_report(filename, species="Mycobacterium tuberculosis")
-            
+
+report_name = group_name + ".all.annot.report.html"
+all_report_file = os.path.join(out_annot_dir, report_name)
+
+with open(all_report_file, 'w+') as fa:
+    fa.write(css_report)
+    for root, _, files in os.walk(out_annot_dir):
+        for name in files:
+            filename = os.path.join(root, name)
+            output_path = os.path.join(out_annot_dir, name)
+            if filename.endswith("final.annot.tsv"):
+                report_sample = create_report(filename, species="Mycobacterium tuberculosis")
+                fa.write(report_sample)
+                fa.write("<br /> <hr>")
+
 
 print("\n\n" + MAGENTA + BOLD + "ANNOTATION FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")
 

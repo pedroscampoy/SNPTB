@@ -11,6 +11,26 @@ from tabulate import tabulate
 from misc import get_snpeff_path, check_create_dir
 from vcf_process import calculate_ALT_AD, obtain_output_dir
 
+##Import files containing annotation info and convert them to dictionary
+##TO DO: Compensatory mutations
+script_dir = os.path.dirname(os.path.realpath(__file__))
+
+annotation_dir = os.path.join(script_dir, "annotation/genes")
+essential_file = os.path.join(annotation_dir, "dict_locus_essential.txt")
+product_file = os.path.join(annotation_dir, "dict_locus_product.txt")
+
+dict_essential = {}
+dict_product = {}
+
+with open(essential_file, 'r') as f:
+    for line in f:
+        dict_essential[line.split(":")[0]] = line.split(":")[1].strip()
+
+with open(product_file, 'r') as f:
+    for line in f:
+        dict_product[line.split(":")[0]] = (":").join(line.split(":")[1:]).strip()
+
+
 
 def replace_reference(input, ref_old, ref_new, output):
     """
@@ -112,6 +132,12 @@ def import_annot_to_pandas(vcf_file, sep='\t'):
         #dataframe['ALT_AD'] = dataframe['AD'].str.split(",").str[1]
         dataframe['ALT_AD'] = dataframe.apply(calculate_ALT_AD, axis=1)
         dataframe[['gt0','gt1']] = dataframe['GT'].str.split(r'[/|\|]', expand=True)
+
+        dataframe['HGVS.c'] = dataframe['HGVS.c'].str.split(".").str[-1]
+        dataframe['HGVS.p'] = dataframe['HGVS.p'].str.split(".").str[-1]
+        dataframe['Gene length'] = dataframe['CDS.pos / CDS.length'].str.split("/").str[-1]
+        dataframe['AA length'] = dataframe['AA.pos / AA.length'].str.split("/").str[-1]
+        dataframe['AA length'].fillna('None', inplace=True)
                 
         to_float = ['QUAL', 'AC', 'af', 'AN', 'BaseQRankSum', 'DP', 'ExcessHet', 'FS',
        'MLEAC', 'MLEAF', 'MQ', 'MQRankSum', 'QD', 'ReadPosRankSum', 'SOR','GQ','ALT_AD', 'REF_AD']
@@ -648,28 +674,14 @@ def add_resistance_snp(vcf_df):
         print("No resistance were found\n")
 
 
-def add_essential_cateory(row):
-    script_dir = os.path.dirname(os.path.realpath(__file__))
-    annotation_dir = os.path.join(script_dir, "annotation/genes")
-    essential_file = os.path.join(annotation_dir, "dict_locus_essential.txt")
-    dict_essential = {}
-    with open(essential_file, 'r') as f:
-        for line in f:
-            dict_essential[line.split(":")[0]] = line.split(":")[1].strip()
+def add_essential_cateory(row, dict_essential=dict_essential):
     if row.Gene_ID in dict_essential.keys():
         if dict_essential[row.Gene_ID] == "essential":
             return "essential"
         else:
             return "nonessential"
 
-def add_product_cateory(row):
-    script_dir = os.path.dirname(os.path.realpath(__file__))
-    annotation_dir = os.path.join(script_dir, "annotation/genes")
-    product_file = os.path.join(annotation_dir, "dict_locus_product.txt")
-    dict_product = {}
-    with open(product_file, 'r') as f:
-        for line in f:
-            dict_product[line.split(":")[0]] = (":").join(line.split(":")[1:]).strip()
+def add_product_cateory(row, dict_product=dict_product):
     if row.Gene_ID in dict_product.keys():
         return dict_product[row.Gene_ID]
 
@@ -723,8 +735,39 @@ def get_reverse(nucleotyde):
                      'G': 'C'}
     return nucleotyde_rev[nucleotyde]
 
+css_report = """
 
-def create_report(tab_annot, species="Mycobacterium tuberculosis"):
+    <style type="text/css">
+
+    body {
+        font: normal 20px Verdana, Arial, sans-serif;
+    }
+
+    table {
+        text-align: center;
+        border-color: #000;
+        border-spacing: 0px;
+        border-style: solid;
+        border-width: 1px;
+    }
+
+    th, td {
+    border-bottom: 1px solid #ddd;
+    padding:0 5px 0 5px;
+    }
+
+    th {
+    background-color: rgb(76, 175, 170);
+    }
+
+    tr:nth-child(even) {background-color: #cecccc;}
+    tr:hover {background-color:#7c7b7b;}
+
+    </style>
+
+    """
+
+def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis"):
     #<div style="position: absolute; bottom: 5px; color: red; background-color: rgb(253, 253, 253)">
     #Text disclaimer 
     #</div>
@@ -743,38 +786,7 @@ def create_report(tab_annot, species="Mycobacterium tuberculosis"):
 
     output_file = os.path.join(output, report_name)
     
-
-    css = """
-
-    <style type="text/css">
-
-    body {
-        font: normal 20px Verdana, Arial, sans-serif;
-    }
-
-    table {
-        text-align: center;
-        border-color: #000;
-        border-spacing: 0px;
-        border-style: solid;
-        border-width: 1px;
-    }
-
-    th, td {
-    border-bottom: 1px solid #ddd;
-    }
-
-    th {
-    background-color: rgb(76, 175, 170);
-    }
-
-    tr:nth-child(even) {background-color: #cecccc;}
-    tr:hover {background-color:#7c7b7b;}
-
-    </style>
-
-    """
-
+    cummulative_report = ""
 
     with open(output_file, 'w+') as f:
 
@@ -782,15 +794,17 @@ def create_report(tab_annot, species="Mycobacterium tuberculosis"):
 
         line_sample = "Sample name: " + sample + "<br /><br />"
         f.write(line_sample)
-        
+        cummulative_report = cummulative_report + line_sample
+
         line_species = "Species: " + "<i>" + str(species) + "</i>" + "<br /><br />"
         f.write(line_species)
+        cummulative_report = cummulative_report + line_species
 
         df_annot = pd.read_csv(tab_annot, sep="\t", header=0)
         
         df_resistance = df_annot[df_annot.Resistance.notnull()]
         df_resistance_F = df_resistance[['POS', 'ALT', 'Annotation', 'Gene_ID', 'Gene_Name', 'HGVS.c', 'HGVS.p', 'Resistance']]
-        df_resistance_F.columns = ['Position', 'Alt. base', 'Region', 'Gene ID', 'Gene Name', 'AA change', 'Codon change', 'Resistance']
+        df_resistance_F.columns = ['Position', 'Alt. base', 'Change', 'Gene ID', 'Gene Name', 'Codon change','AA change', 'Resistance']
         list_resistance = df_annot['Resistance'][df_annot.Resistance.notnull()].tolist()
 
 
@@ -805,21 +819,23 @@ def create_report(tab_annot, species="Mycobacterium tuberculosis"):
                     if str(list_lineage[sublineage_n]).startswith(str(list_lineage[sublineage_n + 1])):
                         asterix = asterix + "*"
             final_lineage = str(list_lineage[0]) #+ " " + asterix
-            line_lineage = "This strain has lineage position(s): " + "<b>" + final_lineage + "</b>" + "<br /><br />"
+            line_lineage = "This strain has lineage position(s): " + "<b>" + str(final_lineage) + "</b>" + "<br /><br />"
             f.write(line_lineage)
+            cummulative_report = cummulative_report + line_lineage
         else:
             line_lineage = "No lineage positions were found<br /><br />"
             f.write(line_lineage)
+            cummulative_report = cummulative_report + line_lineage
         
         #Output Resistance info
         if len(list_resistance) > 0:
             line_res_1 = "This strain has " + str(len(list_resistance)) + " resistance position(s):<br />"
             f.write(line_res_1)
-            
-            additional_resistance = []
-
-            final_res_table = pd.DataFrame(columns= df_res.columns.tolist())
+            cummulative_report = cummulative_report + line_res_1
             """
+            additional_resistance = []
+            final_res_table = pd.DataFrame(columns= df_res.columns.tolist())
+
             for index, _ in df_annot[df_annot.Resistance.notnull()].iterrows():
                 position = str(df_annot.loc[index,'POS'])
                 resistance_name = df_annot.loc[index,'Resistance'].strip("*")
@@ -860,9 +876,16 @@ def create_report(tab_annot, species="Mycobacterium tuberculosis"):
             
             """
             f.write(tabulate(df_resistance_F, headers='keys', tablefmt='html', showindex=False))
+            table_res = tabulate(df_resistance_F, headers='keys', tablefmt='html', showindex=False)
+            cummulative_report = cummulative_report + table_res + "\n"
 
         else:
             f.write("No Resistance positions were found<br />")
+            cummulative_report = cummulative_report + "No Resistance positions were found<br />\n"
 
         f.write("<br /><br />Este informe debe ser utilizado exclusivamente con fines de investigación. No utilizar ningún dato con fines asistenciales.<br />")
 
+    return cummulative_report
+
+if __name__ == '__main__':
+    print("#################### ANNOTATION #########################")
