@@ -15,6 +15,7 @@ from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplot
     samples_from_vcf,split_vcf_saples
 from vcf_process import vcf_consensus_filter
 from annotation import replace_reference, snpeff_annotation, final_annotation, create_report, css_report
+from species_determination import mash_screen
 
 """
 =============================================================
@@ -138,7 +139,7 @@ out_vcfr_dir = os.path.join(args.output, "VCF_recal")
 out_gvcf_dir = os.path.join(args.output, "GVCF")
 out_vcf_dir = os.path.join(args.output, "VCF")
 out_annot_dir = os.path.join(args.output, "Annotation")
-
+out_species_dir = os.path.join(args.output, "Species")
 
 
 for r1_file, r2_file in zip(r1, r2):
@@ -504,6 +505,14 @@ print("\n\n" + MAGENTA + BOLD + "VARIANT CALL FINISHED IN GROUP: " + group_name 
 
 
 print("\n\n" + BLUE + BOLD + "STARTING ANNOTATION IN GROUP: " + group_name + END_FORMATTING + "\n")
+
+for r1_file, r2_file in zip(r1, r2):
+    args.r1_file = r1_file
+    args.r2_file = r2_file
+
+    mash_screen(args, winner=True, mash_database="/home/laura/DATABASES/Mash/refseq.genomes.k21s1000.msh")
+
+
 
 
 for root, _, files in os.walk(out_vcf_dir):
