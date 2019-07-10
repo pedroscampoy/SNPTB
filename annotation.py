@@ -22,10 +22,12 @@ product_file = os.path.join(annotation_dir, "dict_locus_product.txt")
 dict_essential = {}
 dict_product = {}
 
+#Create dictionary of essential genes
 with open(essential_file, 'r') as f:
     for line in f:
         dict_essential[line.split(":")[0]] = line.split(":")[1].strip()
 
+#Create dictionary of gene products
 with open(product_file, 'r') as f:
     for line in f:
         dict_product[line.split(":")[0]] = (":").join(line.split(":")[1:]).strip()
@@ -137,7 +139,8 @@ def import_annot_to_pandas(vcf_file, sep='\t'):
         dataframe['HGVS.p'] = dataframe['HGVS.p'].str.split(".").str[-1]
         dataframe['Gene length'] = dataframe['CDS.pos / CDS.length'].str.split("/").str[-1]
         dataframe['AA length'] = dataframe['AA.pos / AA.length'].str.split("/").str[-1]
-        dataframe['AA length'].fillna('None', inplace=True)
+        dataframe['AA length'] = dataframe['AA length'].replace('', 0)
+        dataframe['HGVS.p'] = dataframe['HGVS.p'].replace('', 'None')
                 
         to_float = ['QUAL', 'AC', 'af', 'AN', 'BaseQRankSum', 'DP', 'ExcessHet', 'FS',
        'MLEAC', 'MLEAF', 'MQ', 'MQRankSum', 'QD', 'ReadPosRankSum', 'SOR','GQ','ALT_AD', 'REF_AD']
@@ -767,7 +770,7 @@ css_report = """
 
     """
 
-def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis"):
+def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis", species_report="Main species: <i>Mycobacterium tuberculosis</i><br />"):
     #<div style="position: absolute; bottom: 5px; color: red; background-color: rgb(253, 253, 253)">
     #Text disclaimer 
     #</div>
@@ -798,7 +801,7 @@ def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis
 
         line_species = "Species: " + "<i>" + str(species) + "</i>" + "<br /><br />"
         f.write(line_species)
-        cummulative_report = cummulative_report + line_species
+        cummulative_report = cummulative_report + species_report + "<br />"
 
         df_annot = pd.read_csv(tab_annot, sep="\t", header=0)
         

@@ -15,7 +15,8 @@ from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplot
     samples_from_vcf,split_vcf_saples
 from vcf_process import vcf_consensus_filter
 from annotation import replace_reference, snpeff_annotation, final_annotation, create_report, css_report
-from species_determination import mash_screen
+from species_determination import mash_screen, extract_species_from_screen
+
 
 """
 =============================================================
@@ -252,7 +253,7 @@ for r1_file, r2_file in zip(r1, r2):
 group_name = output.split("/")[-1]
 print("\n\n" + BLUE + BOLD + "CHECKING LOW COVERED SAMPLES IN GROUP: " + group_name + END_FORMATTING + "\n")
 
-out_cov_name = group_name + ".covegare.tab"
+out_cov_name = group_name + ".coverage.tab"
 output_cov_file = os.path.join(out_cov_dir, out_cov_name)
 
 if os.path.isfile(output_cov_file):
@@ -506,27 +507,26 @@ print("\n\n" + MAGENTA + BOLD + "VARIANT CALL FINISHED IN GROUP: " + group_name 
 
 print("\n\n" + BLUE + BOLD + "STARTING ANNOTATION IN GROUP: " + group_name + END_FORMATTING + "\n")
 
-for r1_file, r2_file in zip(r1, r2):
-    args.r1_file = r1_file
-    args.r2_file = r2_file
-
-    mash_screen(args, winner=True, mash_database="/home/laura/DATABASES/Mash/refseq.genomes.k21s1000.msh")
-
-
-
-
 for root, _, files in os.walk(out_vcf_dir):
     for name in files:
         filename = os.path.join(root, name)
         output_path = os.path.join(out_annot_dir, name)
         if filename.endswith(".final.vcf"):
             sample = name.split(".")[0]
-            print(GREEN + "Annotating sample " + sample + END_FORMATTING)
-            replace_reference(filename, "MTB_anc", "Chromosome", output_path)
-            snpeff_annotation(args, output_path, database="Mycobacterium_tuberculosis_h37rv")
-            vcf_path = (".").join(output_path.split(".")[:-1])
-            annot_vcf = vcf_path + ".annot"
-            final_annotation(annot_vcf)
+            #ANNOTATION -AUTO AND SPECIFIC- ###################
+            ###################################################
+            out_annot_name = sample + ".snp.hf.pass.final.annot.tsv"
+            output_annot_file = os.path.join(out_annot_dir, out_annot_name)
+
+            if os.path.isfile(output_annot_file):
+                print(YELLOW + DIM + output_annot_file + " EXIST\nOmmiting Annotation for sample " + sample + END_FORMATTING)
+            else:
+                print(GREEN + "Annotating snps in sample " + sample + END_FORMATTING)
+                replace_reference(filename, "MTB_anc", "Chromosome", output_path)
+                snpeff_annotation(args, output_path, database="Mycobacterium_tuberculosis_h37rv")
+                vcf_path = (".").join(output_path.split(".")[:-1])
+                annot_vcf = vcf_path + ".annot"
+                final_annotation(annot_vcf)
 
 
 
@@ -536,16 +536,37 @@ print("\n\n" + BLUE + BOLD + "STARTING REPORT IN GROUP: " + group_name + END_FOR
 report_name = group_name + ".all.annot.report.html"
 all_report_file = os.path.join(out_annot_dir, report_name)
 
+
 with open(all_report_file, 'w+') as fa:
-    fa.write(css_report)
-    for root, _, files in os.walk(out_annot_dir):
-        for name in files:
-            filename = os.path.join(root, name)
-            output_path = os.path.join(out_annot_dir, name)
-            if filename.endswith("final.annot.tsv"):
-                report_sample = create_report(filename, species="Mycobacterium tuberculosis")
-                fa.write(report_sample)
-                fa.write("<br /> <hr>")
+    for r1_file, r2_file in zip(r1, r2):
+        args.r1_file = r1_file
+        args.r2_file = r2_file
+        sample = extract_sample(r1_file, r2_file)
+
+        #SPECIES DETERMINATION USING mash #################
+        ###################################################
+        out_mash_name = sample + ".screen.tab"
+        output_mash_file = os.path.join(out_species_dir, out_mash_name)
+        
+        if os.path.isfile(output_mash_file):
+            print(YELLOW + DIM + output_mash_file + " EXIST\nOmmiting Species calculation for sample " + sample + END_FORMATTING)
+        else:
+            print(GREEN + "Determining species content in sample " + sample + END_FORMATTING)
+            mash_screen(args, winner=True, r2=False, mash_database="/home/laura/DATABASES/Mash/refseq.genomes.k21s1000.msh")
+
+        fa.write(css_report)
+
+        for root, _, files in os.walk(out_annot_dir):
+            for name in files:
+                filename = os.path.join(root, name)
+                output_path = os.path.join(out_annot_dir, name)
+                if filename.endswith("final.annot.tsv") and sample in filename:
+                    print(GREEN + "Creating report in sample: " + sample + END_FORMATTING)
+                    sample_report = extract_species_from_screen(output_mash_file)
+                    report_sample = create_report(filename, species=sample_report[0], species_report=sample_report[1])
+                    fa.write(report_sample)
+                    fa.write("<br /> <hr>")
+                    print(GREEN + "Report created for sample: " + sample + END_FORMATTING)
 
 
 print("\n\n" + MAGENTA + BOLD + "ANNOTATION FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")

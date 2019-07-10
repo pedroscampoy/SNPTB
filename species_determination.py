@@ -86,7 +86,7 @@ def zcat_concat_reads(args):
     return output_file
 
 
-def mash_screen(args, winner=True, mash_database="/home/laura/DATABASES/Mash/refseq.genomes.k21s1000.msh"):
+def mash_screen(args, winner=True, r2=False, mash_database="/home/laura/DATABASES/Mash/refseq.genomes.k21s1000.msh"):
     #https://mash.readthedocs.io/en/latest/index.html
     #https://gembox.cbcb.umd.edu/mash/refseq.genomes.k21s1000.msh #MASH refseq database
     # mash screen -w -p 4 ../refseq.genomes.k21s1000.msh 4_R1.fastq.gz 4_R2.fastq.gz > 4.winner.screen.tab
@@ -109,17 +109,18 @@ def mash_screen(args, winner=True, mash_database="/home/laura/DATABASES/Mash/ref
     species_output_name = sample + ".screen.tab"
     species_output_file = os.path.join(species_output_dir, species_output_name)
 
-    cmd = ["mash", "screen", "-p", str(threads), mash_database, r1, r2]
+    cmd = ["mash", "screen", "-p", str(threads), mash_database, r1]
 
     if winner == True:
         cmd.insert(2,"-w")
+    #Use both r1 and r2 instead of just r1(faster)
+    if r2 == True:
+        cmd.append(r2)
 
     #cmd.extend([mash_database, r1, r2])
 
     prog = cmd[0]
     param = cmd[1:]
-
-    print(" ".join(cmd))
 
     try:
     #execute_subprocess(cmd)
@@ -134,14 +135,80 @@ def mash_screen(args, winner=True, mash_database="/home/laura/DATABASES/Mash/ref
                 + BOLD + "WITH PARAMETERS: " + END_FORMATTING + " ".join(param) + "\n"
                 + BOLD + "EXIT-CODE: %d\n" % command.returncode +
                 "ERROR:\n" + END_FORMATTING + command.stderr)
-
     except OSError as e:
         sys.exit(RED + BOLD + "failed to execute program '%s': %s" % (prog, str(e)) + END_FORMATTING)
 
+
+def extract_species(row):
+    split_row = row['query-comment'].split(" ")
+    if split_row[0].startswith("[") and split_row[1].endswith("]"):
+        species = (" ").join([split_row[3], split_row[4]]) 
+    else:
+        species = (" ").join([split_row[1], split_row[2]])
+    return species
+
+def extract_accession(row):
+    split_row = row['query-comment'].split(" ")
+    if split_row[0].startswith("[") and split_row[1].endswith("]"):
+        accession = split_row[2]
+    else:
+        accession = split_row[0]
+    return accession
+
+def import_mash_screen_to_pandas(screen_file):
+    dataframe = pd.read_csv(screen_file, sep="\t", names=['identity', 'shared-hashes',
+                                                   'median-multiplicity', 'p-value',
+                                                   'query-ID', 'query-comment'])
+    
+    dataframe['Species'] = dataframe.apply(extract_species, axis=1)    
+    dataframe['Accession'] = dataframe.apply(extract_accession, axis=1)
+    dataframe['GCF'] = dataframe['query-ID'].str.split("_").str[0:2].str.join('_')
+    dataframe['ASM'] = dataframe['query-ID'].str.split("_").str[2]
+    dataframe['Hash_1'] = dataframe['shared-hashes'].str.split("/").str[0]
+    dataframe['Hash_2'] = dataframe['shared-hashes'].str.split("/").str[1]
+    
+    to_int = ['Hash_1', 'Hash_2']    
+                
+    for column in dataframe.columns:
+        if column in to_int:
+            dataframe[column] = dataframe[column].astype(int)
+            
+    dataframe['Hash_fr'] = dataframe['Hash_1']/ dataframe['Hash_2']
+    
+    return dataframe
+
+def extract_species_from_screen(screen_file, identity_threshold=0.9):
+
+    screen_dataframe = import_mash_screen_to_pandas(screen_file)
+
+    df_index = screen_dataframe[screen_dataframe.identity > identity_threshold]
+    #max_hash = df_index['Hash_fr'].max()
+    hash_values = df_index.Hash_fr.values.tolist()
+    hash_values.sort(reverse=True)
+
+    main_species = df_index['Species'][df_index['Hash_fr'] == hash_values[0]].values[0]
+    
+    species_report = "Main species: " + "<i>" + main_species + "</i>" + "<br />"
+    
+    #<p style="padding-right: 5px;">My Text Here</p>.
+    if len(hash_values) > 1:
+        for index, hash_value in enumerate(hash_values):
+            species_hashed = df_index['Species'][df_index['Hash_fr'] == hash_value].values[0]
+            if index != 0:
+                if hash_value > 0.6:
+                    species_line = "Another high represented species found: " + "<i>" + species_hashed + "</i>" + "<br />"
+                elif hash_value < 0.3:
+                    species_line = "Another less represented species found: " + "<i>" + species_hashed + "</i>" + "<br />"
+                else:
+                    species_line = "Another mild represented species found: " + "<i>" + species_hashed + "</i>" + "<br />"
+                    
+                species_report = species_report + species_line
+                
+    return main_species, species_report
 
 
 if __name__ == '__main__':
     print("#################### SPECIES #########################")
     args = get_arguments()
     #zcat_concat_reads(args)
-    mash_screen(args, winner=True, mash_database="/home/laura/DATABASES/Mash/refseq.genomes.k21s1000.msh")
+    mash_screen(args, winner=True, r2=False, mash_database="/home/laura/DATABASES/Mash/refseq.genomes.k21s1000.msh")

@@ -543,7 +543,8 @@ def split_vcf_saples(vcf_file, sample_list=False):
         "--remove-unused-alternates",
         "--output", output_vcf_file]
 
-        execute_subprocess(cmd)
+        if not os.path.isfile(output_vcf_file):
+            execute_subprocess(cmd)
 
 def combine_gvcf_folder(args, gvcf_input_dir, sample_list=False):
     """
