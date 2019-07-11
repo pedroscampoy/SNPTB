@@ -292,3 +292,27 @@ def remove_low_covered(output_dir, sample_list):
                     if name.startswith(sample_low):
                         os.remove(filename)
 
+def clean_unwanted_files(args):
+    Trimmed_dir = ""
+    for root, _, files in os.walk(args.output):
+        if 'Trimmed' in root:
+            Trimmed_dir = root
+        for name in files:
+            filename = os.path.join(root, name)
+            if root.endswith("Bam") and not "bqsr" in filename:
+                print("Removed: " + filename)
+                os.remove(filename)
+            elif filename.endswith("cohort.g.vcf") or filename.endswith("cohort.g.vcf.idx"):
+                print("Removed: " + filename)
+                os.remove(filename)
+            elif root.endswith("Annotation") and (filename.endswith("annot.genes.txt") or filename.endswith(".vcf") or filename.endswith(".annot.html")):
+                print("Removed: " + filename)
+                os.remove(filename)
+            elif root.endswith("Trimmed"):
+                print("Removed: " + filename)
+                os.remove(filename)
+                
+    if Trimmed_dir:
+        print("Removed folder: " + Trimmed_dir)
+        os.rmdir(Trimmed_dir)
+                

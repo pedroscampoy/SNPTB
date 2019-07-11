@@ -7,7 +7,7 @@ import argparse
 #import argcomplete
 import subprocess
 from misc import check_file_exists, extract_sample, obtain_output_dir, check_create_dir, execute_subprocess, \
-    extract_read_list, file_to_list, get_coverage, obtain_group_cov_stats, remove_low_covered
+    extract_read_list, file_to_list, get_coverage, obtain_group_cov_stats, remove_low_covered, clean_unwanted_files
 from bbduk_trimmer import bbduk_trimming
 from pe_mapper import bwa_mapping, sam_to_index_bam
 from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplotype_caller, call_variants, \
@@ -83,6 +83,7 @@ def get_arguments():
 
     params_group = parser.add_argument_group('Parameters', 'parameters for diferent stringent conditions')
 
+    params_group.add_argument('-C', '--clean', required=False, action='store_true', help='Clean unwanted files for standard execution')
     params_group.add_argument('-c', '--mincov', type=int, required=False, default=20, help='Minimun coverage to add samples into analysis')
     params_group.add_argument('-T', '--threads', type=str, dest = "threads", required=False, default=4, help='Threads to use')
     params_group.add_argument('-M', '--memory', type=str, dest = "memory", required=False, default=8, help='MAx memory to use')
@@ -570,6 +571,15 @@ with open(all_report_file, 'w+') as fa:
 
 
 print("\n\n" + MAGENTA + BOLD + "ANNOTATION FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")
+
+
+print("\n\n" + BLUE + BOLD + "STARTING CLEANING IN GROUP: " + group_name + END_FORMATTING + "\n")
+if args.clean == True:
+    clean_unwanted_files(args)
+else:
+    print("No cleaning was requested")
+
+print("\n\n" + MAGENTA + BOLD + "#####END OF PIPELINE SNPTB#####" + END_FORMATTING + "\n")
 
 
 #./snptb_runner.py -i /home/laura/ANALYSIS/Lofreq/coinfection_designed/raw -r reference/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_designed/TEST -s sample_list.txt
