@@ -10,15 +10,25 @@ import subprocess
 from misc import check_file_exists, obtain_output_dir, check_create_dir, get_picard_path, execute_subprocess, check_remove_file
 
 def calculate_ALT_AD(row):
+    split_AD = row.AD.split(",")[1:]
+    split_AD = [int(x) for x in split_AD]
     if row.len_AD > 2:
-        split_AD = row.AD.split(",")[1:]
         max_AD = max(split_AD)
         #max_index = split_AD.index(max(split_AD))
         return max_AD
     else:
-        ALT_AD = row.AD.split(",")[1]
-        return ALT_AD
+        #ALT_AD = row.AD.split(",")[1]
+        return split_AD[0]
 
+def handle_polymorphism(vcf_df):
+    for index, _ in vcf_df[vcf_df.len_AD > 2].iterrows():
+        split_AD = vcf_df.loc[index, 'AD'].split(",")[1:]
+        split_AD = [int(x) for x in split_AD]
+        if max(split_AD)/min(split_AD) > 3:
+            max_index = split_AD.index(max(split_AD))
+            split_ALT = vcf_df.loc[index, 'ALT'].split(",")
+            vcf_df.loc[index, 'ALT'] = split_ALT[max_index]
+            vcf_df.loc[index, 'len_AD'] = 2
 
 def import_VCF42_to_pandas(vcf_file, sep='\t'):
     """
@@ -26,7 +36,9 @@ def import_VCF42_to_pandas(vcf_file, sep='\t'):
     - now handle correct allele frequency calculated by summing REF reads + ALT reads instead from DP parameter
     - now retrieve the largest read number for ALT allele frequency in case is a heterozygous SNP (depends on calculate_ALT_AD())
     - now uses dataframe.iterrows() instead dataframe.index
+    - remove snps with two alternate alleles, keeping the most abundant if this is more at least 3 times more frequent
     """
+
     header_lines = 0
     with open(vcf_file) as f:
         first_line = f.readline().strip()
@@ -62,10 +74,12 @@ def import_VCF42_to_pandas(vcf_file, sep='\t'):
         dataframe['len_AD'] = dataframe['AD'].str.split(",").str.len()
         dataframe['REF_AD'] = dataframe['AD'].str.split(",").str[0]
         #dataframe['ALT_AD'] = dataframe['AD'].str.split(",").str[1]
+
         dataframe['ALT_AD'] = dataframe.apply(calculate_ALT_AD, axis=1)
         dataframe[['gt0','gt1']] = dataframe['GT'].str.split(r'[/|\|]', expand=True)
+        
+        handle_polymorphism(dataframe)
 
-                
         to_float = ['QUAL', 'AC', 'af', 'AN', 'BaseQRankSum', 'DP', 'ExcessHet', 'FS',
        'MLEAC', 'MLEAF', 'MQ', 'MQRankSum', 'QD', 'ReadPosRankSum', 'SOR','GQ','ALT_AD', 'REF_AD']
         
@@ -89,13 +103,45 @@ def import_VCF42_to_pandas(vcf_file, sep='\t'):
         dataframe['aF'] = dataframe['REF_AD']/dataframe['dp']
         dataframe['AF'] = dataframe['ALT_AD']/dataframe['dp']
         
-
-                
     else:
         print("This vcf file is not v4.2")
         sys.exit(1)
            
     return dataframe
+
+def import_VCF41_to_pandas(vcf_file):
+    header_lines = 0
+    with open(vcf_file) as f:
+        first_line = f.readline().strip()
+        next_line = f.readline().strip()
+        while next_line.startswith("##"):
+            header_lines = header_lines + 1
+            #print(next_line)
+            next_line = f.readline()
+
+    if first_line.endswith('VCFv4.1'):
+        df = pd.read_csv(vcf_file, sep='\t', skiprows=[header_lines], header=header_lines)
+        
+        for index, _ in df.iterrows():
+            info_fields = re.findall(r';*([a-zA-Z]{1,20})=', df.loc[index,'INFO'])
+            info_values = re.sub(r'([a-zA-Z]{1,20})=', '', df.loc[index,'INFO']).split(";") #Remove fields and split the remaining
+        
+            for ifield, ivalue in zip(info_fields,info_values):
+                df.loc[index,ifield] = ivalue
+        
+        #df = df[(~df['RES'].str.startswith("phylo"))] #Remove phylo(lineage) markers
+        df['ALT']=df['ALT'].str.upper()
+        df['REF']=df['REF'].str.upper()
+        #df[['Gene ID', 'Gene name', 'Gene start', 'Gene stop']] = df.GENE.str.split(":", expand=True)
+        #df['GENE'] = df['INFO'].apply(lambda x: extract_gene_name(x))
+        #df['Isreverse'] = df['GENE'].apply(lambda x: True if x.endswith("c") else False)
+
+        return df
+    else:
+        print("This vcf file is not v4.1")
+        sys.exit(1)
+
+
 
 def import_VCF42_to_pandas_legacy(vcf_file, sep='\t'):
     header_lines = 0
@@ -181,8 +227,9 @@ def add_snp_distance(vcf_df):
             
     return vcf_df
 
-def add_window_distance(vcf_df, window_size=10):
+def add_window_distance_legacy(vcf_df, window_size=10):
     """
+    DEPRECATED
     Add a column indicating the maximum number of SNPs in a windows of 10
     """
     list_pos = vcf_df.POS.to_list() #all positions
@@ -190,7 +237,8 @@ def add_window_distance(vcf_df, window_size=10):
     max_pos = max(vcf_df.POS.to_list()) #max to iter over positions (independent from reference)
 
     all_list = list(range(1, max_pos + 1)) #create a list to slide one by one
-    
+    df_header = "window_" + str(window_size)
+
     #Create sets
     set_2 = set()
     set_3 = set()
@@ -201,7 +249,7 @@ def add_window_distance(vcf_df, window_size=10):
     
     #Slide over windows
     for i in range(0,max_pos,1):
-        window_pos = all_list[i:i+window_size]
+        window_pos = all_list[i:i+window_size] #This splits the list in windows of determined length
         set_window_pos = set(window_pos)
         #How many known positions are in every window for later clasification
         num_conglomerate = set_pos & set_window_pos
@@ -214,26 +262,51 @@ def add_window_distance(vcf_df, window_size=10):
             set_3.update(num_conglomerate)
         elif len(num_conglomerate) == 2:
             set_2.update(num_conglomerate)
-            
     #Remove positions in a higher number of sets
     for set_num in range(0, len(sets)):
         if set_num < (len(sets) - 1):
             sets[set_num] = sets[set_num] - sets[set_num + 1]
-            
+
     for index, _ in vcf_df.iterrows():
         if vcf_df.loc[index,'POS'] in sets[0]:
-            vcf_df.loc[index, 'Window_10'] = 2
+            vcf_df.loc[index, df_header] = 2
         elif vcf_df.loc[index,'POS'] in sets[1]:
-            vcf_df.loc[index, 'Window_10'] = 3
+            vcf_df.loc[index, df_header] = 3
         elif vcf_df.loc[index,'POS'] in sets[2]:
-            vcf_df.loc[index, 'Window_10'] = 4
+            vcf_df.loc[index, df_header] = 4
         elif vcf_df.loc[index,'POS'] in sets[3]:
-            vcf_df.loc[index, 'Window_10'] = 5
+            vcf_df.loc[index, df_header] = 5
         else:
-            vcf_df.loc[index, 'Window_10'] = 1
+            vcf_df.loc[index, df_header] = 1
             
-    vcf_df['Window_10'] = vcf_df['Window_10'].astype(int)
+    vcf_df[df_header] = vcf_df[df_header].astype(int)
 
+def add_window_distance(vcf_df, window_size=10):
+    """
+    Add a column indicating the maximum number of SNPs in a windows of 10 or supplied distance
+    """
+    list_pos = vcf_df.POS.to_list() #all positions
+    set_pos = set(list_pos) #to set for later comparing
+    max_pos = max(vcf_df.POS.to_list()) #max to iter over positions (independent from reference)
+
+    all_list = list(range(1, max_pos + 1)) #create a list to slide one by one
+    
+    df_header = "window_" + str(window_size)
+
+    vcf_df[df_header] = 1 #Create all 1 by default
+
+    #Slide over windows
+    for i in range(0,max_pos,1):
+        window_pos = all_list[i:i+window_size] #This splits the list in windows of determined length
+        set_window_pos = set(window_pos)
+        #How many known positions are in every window for later clasification
+        num_conglomerate = set_pos & set_window_pos
+        
+        if len(num_conglomerate) > 1:
+            for i in num_conglomerate:
+                index = vcf_df.index[vcf_df["POS"] == i][0] #Retrieve index with the known position
+                if vcf_df.loc[index,df_header] < len(num_conglomerate):
+                    vcf_df.loc[index,df_header] = len(num_conglomerate)
 
 
 def filter_repeats(row):
@@ -409,7 +482,7 @@ def filter_vcf_list(raw_vcf, list_pos, name_out):
 
 
 
-def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=10, window_10=3):
+def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=10, window_10=3, dp_AF=10, AF_dp=0.90 ):
     """
     Apply custom filter to individual vcf based on:
     AF
@@ -439,6 +512,7 @@ def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=10, window_10=3):
 
     #Add info of clustered positions in sliding window
     add_window_distance(df_vcf, window_size=10)
+    add_window_distance(df_vcf, window_size=20)
 
     #output all raw info into a file
     new_out_file = tab_name + extend_raw
@@ -448,11 +522,13 @@ def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=10, window_10=3):
     list_positions_to_filter = df_vcf['POS'][((df_vcf.AF < AF) | 
                                 (df_vcf.snp_left_distance <= distance)|
                                 (df_vcf.snp_right_distance <= distance)|
-                                (df_vcf.Window_10 >= window_10)|
+                                (df_vcf.window_10 >= window_10)|
                                 (df_vcf.AF <= 0.0)|
                                 (df_vcf.QD <= QD)|
                                 (df_vcf.len_AD > 2) |
-                                ((df_vcf.gt0 == 0) & (df_vcf.Window_10 > 1)) |
+                                ((df_vcf.gt0 == 0) & (df_vcf.window_10 > 1)) |
+                                ((df_vcf.gt0 == 0) & (df_vcf.window_20 >= 3)) |
+                                ((df_vcf.dp < dp_AF) & (df_vcf.AF < AF_dp)) |
                                 (df_vcf.Is_repeat == True))].tolist()
     
     final_vcf_name = tab_name + extend_final

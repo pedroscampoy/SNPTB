@@ -100,6 +100,7 @@ def bbduk_trimming(args):
     adapter_path = "ref=" + get_bbduk_adapters()
 
     memory_param = "-Xmx" + str(args.memory) + "g"
+    threads_param = "threads=" + str(args.threads)
 
     check_create_dir(output_dir)
 
@@ -107,15 +108,18 @@ def bbduk_trimming(args):
     cmd = ["bbduk.sh", memory_param, in1_param, in2_param, out1_param, out2_param, adapter_path,
         "trimq=15" , "qtrim=rl", "minlen=40",
         "ktrim=r", "k=21", "mink=11", "hammingdistance=2",
-        "threads=auto", "tpe", "tbo", stats_param]
+        threads_param, "tpe", "tbo", stats_param]
     
     execute_subprocess(cmd)
-        
 
-#print(args)
 
-#get_bbduk_adapters()
-#bbduk_trimming(args)
+
+if __name__ == '__main__':
+    print("#################### TRIMMING #########################")
+    #print(args)
+
+    #get_bbduk_adapters()
+    #bbduk_trimming(args)
 
 #python bbduk_trimmer.py -1 ../RAW/AL14621_R1.fastq.gz -2 ../RAW/AL14621_R2.fastq.gz -o .
 #python bbduk_trimmer.py -1 /home/pedro/analysis/Mixed/RAW/1mixed_S58_R1_001.fastq.gz -2 /home/pedro/analysis/Mixed/RAW/1mixed_S58_R2_001.fastq.gz -o /home/pedro/analysis/Mixed

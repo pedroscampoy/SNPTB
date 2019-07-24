@@ -156,6 +156,7 @@ def samtools_faidx(args):
 
 
 def haplotype_caller(args, recalibrate=False, ploidy=1, bamout=False, forceactive=False, intervals=False):
+    #base_quality=13, 
     """
     #No excuses
     https://software.broadinstitute.org/gatk/documentation/article?id=11081
@@ -184,14 +185,19 @@ def haplotype_caller(args, recalibrate=False, ploidy=1, bamout=False, forceactiv
     input_bam_to_call = os.path.join(bam_output_dir, input_bam_to_call_name)
     gvcf_output_full = os.path.join(gvcf_output_dir, gvcf_output_file)
 
+    memory_param = "-Xmx" + str(args.memory) + "g"
+
     hc_args = ["gatk", "HaplotypeCaller",
-     "--reference", input_reference,
-     "--input", input_bam_to_call,
-     "--output", gvcf_output_full,
-     "--emit-ref-confidence", "GVCF",
-     "--annotation-group", "AS_StandardAnnotation",
-     "--sample-ploidy", str(ploidy)
-     ]
+    "--java-options", memory_param,
+    "--reference", input_reference,
+    "--input", input_bam_to_call,
+    "--output", gvcf_output_full,
+    "--emit-ref-confidence", "GVCF",
+    "--annotation-group", "AS_StandardAnnotation",
+    "--sample-ploidy", str(ploidy)
+    ]
+
+#"--min-base-quality-score", str(base_quality),
 
     #Create bam index
     cmd_index = ["samtools", "index", input_bam_to_call]
@@ -256,7 +262,10 @@ def call_variants(args, recalibrate=False, group=True):
     check_create_dir(gvcf_input_dir)
     check_create_dir(vcf_output_dir)
 
+    memory_param = "-Xmx" + str(args.memory) + "g"
+
     cmd = ["gatk", "GenotypeGVCFs",
+    "--java-options", memory_param,
     "--reference", input_reference,
     "--variant", gvcf_input_full,
     "--output", vcf_output_full]
@@ -283,6 +292,9 @@ def select_variants(raw_vcf, select_type='SNP'):
     #file_name = raw_vcf_file_name.split("/")[-1] #sample_name
 
     vcf_selected_output_file = raw_vcf_file_name + extension
+
+    #memory_param = "-Xmx" + str(args.memory) + "g"
+    #"--java-options", memory_param,
 
     cmd = ["gatk", "SelectVariants", 
     "--variant", input_vcf,
@@ -324,7 +336,7 @@ def hard_filter(selected_vcf, select_type='SNP'):
             "--variant", input_vcf,
             "--filter-expression", "QD < 2.0", "--filter-name", "QD2",
             "--filter-expression", "QUAL < 30.0", "--filter-name", "QUAL30",
-            "--filter-expression", "SOR > 3.0", "--filter-name", "SOR3",
+            "--filter-expression", "SOR > 3.5", "--filter-name", "SOR3",
             "--filter-expression", "FS > 60.0", "--filter-name", "FS60",
             "--filter-expression", "MQ < 40.0", "--filter-name", "MQ40",
             "--filter-expression", "DP < 10", "--filter-name", "DP10",
@@ -370,7 +382,10 @@ def combine_gvcf(args, recalibrate=False, all_gvcf=False):
 
     check_create_dir(gvcf_input_dir)
 
-    cmd = ["gatk", "CombineGVCFs", 
+    memory_param = "-Xmx" + str(args.memory) + "g"
+
+    cmd = ["gatk", "CombineGVCFs",
+    "--java-options", memory_param,
     "--reference", input_reference,
     "--output", gvcf_output_full]
 
@@ -470,9 +485,12 @@ def recalibrate_bam(args, tb=True):
     table_output_file_name = sample_name + ".recall.table"
     table_output_file = os.path.join(vcf_input_dir, table_output_file_name)
 
-    #BaseRecalibrator
+    memory_param = "-Xmx" + str(args.memory) + "g"
 
-    cmd_bqsr = ["gatk", "BaseRecalibrator", 
+    #BaseRecalibrator
+    
+    cmd_bqsr = ["gatk", "BaseRecalibrator",
+    "--java-options", memory_param, 
     "--reference", input_reference,
     "--input", bam_input_file,
     "--output", table_output_file]
@@ -564,7 +582,10 @@ def combine_gvcf_folder(args, gvcf_input_dir, sample_list=False):
 
     check_create_dir(gvcf_output_dir)
 
+    memory_param = "-Xmx" + str(args.memory) + "g"
+
     cmd = ["gatk", "CombineGVCFs", 
+    "--java-options", memory_param,
     "--reference", input_reference,
     "--output", gvcf_output_full]
 
@@ -579,3 +600,6 @@ def combine_gvcf_folder(args, gvcf_input_dir, sample_list=False):
         print("GVCF enrichment folder does not exist")
 
     execute_subprocess(cmd)
+
+if __name__ == '__main__':
+    print("#################### BAM RECALL #########################")
