@@ -4,7 +4,8 @@ import os
 import argparse
 import subprocess
 import shutil
-from misc import check_file_exists, obtain_output_dir, check_create_dir, get_picard_path, execute_subprocess, check_remove_file
+from misc import check_file_exists, obtain_output_dir, check_create_dir, get_picard_path, execute_subprocess, check_remove_file, \
+    longest_common_suffix
 
 
 
@@ -531,6 +532,46 @@ def samples_from_vcf(vcf_file):
     sample_list = samples.stdout.split("\n")[:-1]
     return sample_list
 
+
+def combine_vcf(vcf_file_1, vcf_file_2, name_out=False):
+    """
+    Merge vcf files by position (POS) and ALT variants
+    """ 
+    input_vcf_1 = os.path.abspath(vcf_file_1)
+    input_vcf_2 = os.path.abspath(vcf_file_2)
+    #input_vcf_dir_name = os.path.dirname(vcf_file_1)
+    
+    if name_out == False:
+        prefix = os.path.commonprefix([input_vcf_1, input_vcf_2])
+        suffix = longest_common_suffix([input_vcf_1, input_vcf_2])
+        output_file = prefix + "combined" + suffix
+        
+    else:
+        output_file = os.path.abspath(name_out)
+    
+    list_pos = []
+    
+    with open(input_vcf_1, "r") as f1:
+        with open(input_vcf_2, "r") as f2:
+            with open(output_file, "w+") as fout:
+                for line in f1:
+                    if line.startswith("#"): #write header only from first vcf
+                        fout.write(line)
+                    else:
+                        position =  int(line.split("\t")[1])
+                        if position not in list_pos:
+                            fout.write(line)
+                            list_pos.append(position)
+                for line in f2:
+                    if line.startswith("#"):
+                        f2.readline()
+                    else:
+                        position =  int(line.split("\t")[1])
+                        if position not in list_pos:
+                            fout.write(line)
+                            list_pos.append(position)
+
+
 def split_vcf_saples(vcf_file, sample_list=False):
     """
     https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_variantutils_SelectVariants.php
@@ -554,12 +595,17 @@ def split_vcf_saples(vcf_file, sample_list=False):
         output_vcf_name = sample_name + "." + vcf_file_extension
         output_vcf_file = os.path.join(vcf_dir_name, output_vcf_name)
         cmd = ["gatk", "SelectVariants",
-        "--select-type-to-include", "SNP",
         "--variant", vcf_file,
         "--sample-name", sample_name,
         "--exclude-non-variants",
-        "--remove-unused-alternates",
         "--output", output_vcf_file]
+        #"--exclude-non-variants", #remove non genotyped variants
+        #"--remove-unused-alternates", #avoid poblational polymorphism
+        #--preserve-alleles
+        #"--keep-original-dp",
+        #"--keep-original-ac",
+        #"--select-type-to-include", "SNP",
+        #"--select-type-to-include", "MIXED",
 
         if not os.path.isfile(output_vcf_file):
             execute_subprocess(cmd)

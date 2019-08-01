@@ -316,3 +316,12 @@ def clean_unwanted_files(args):
         print("Removed folder: " + Trimmed_dir)
         os.rmdir(Trimmed_dir)
                 
+def longest_common_suffix(list_of_strings):
+    """
+    Return the longest common suffix in a list of strings
+    Adapted from https://gist.github.com/willwest/ca5d050fdf15232a9e67
+    """
+    reversed_strings = [s[::-1] for s in list_of_strings]
+    reversed_lcs = os.path.commonprefix(reversed_strings)
+    lcs = reversed_lcs[::-1]
+    return lcs

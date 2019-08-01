@@ -64,13 +64,14 @@ def get_arguments():
     output_group.add_argument('-o', '--output', type=str, required=True, help='REQUIRED. Output directory to extract all results')
 
     vcf_group = parser.add_argument_group('VCF filters', 'parameters for variant filtering')
-
+    
+    vcf_group.add_argument('-b', '--bed_remove', type=str, required=False, default="TB", help='BED file with position ranges to filter from final vcf')
     vcf_group.add_argument('-m', '--maxnocallfr', type=str, required=False, default=0.2, help='maximun proportion of samples with non genotyped alleles')
 
     params_group = parser.add_argument_group('Parameters', 'parameters for diferent stringent conditions')
 
-    params_group.add_argument('-T', '--threads', type=str, dest = "threads", required=False, default=4, help='Threads to use')
-    params_group.add_argument('-M', '--memory', type=str, dest = "memory", required=False, default=8, help='MAx memory to use')
+    params_group.add_argument('-T', '--threads', type=str, dest = "threads", required=False, default=16, help='Threads to use')
+    params_group.add_argument('-M', '--memory', type=str, dest = "memory", required=False, default=32, help='MAx memory to use')
 
 
 
@@ -86,6 +87,13 @@ print(args)
 ######################################################################
 #####################START PIPELINE###################################
 ######################################################################
+#Annotation related
+script_dir = os.path.dirname(os.path.realpath(__file__))
+annotation_dir = os.path.join(script_dir, "annotation/genes")
+if args.bed_remove == "TB":
+    bed_polymorphism = os.path.join(annotation_dir, "MTB_repeats_annot.bed")
+
+
 output = os.path.abspath(args.output)
 #input_dir = os.path.abspath(args.input)
 group_name = output.split("/")[-1]
@@ -186,7 +194,7 @@ for sample in sample_list_F:
         print(YELLOW + DIM + output_final_vcf + " EXIST\nOmmiting Final filter for sample " + sample + END_FORMATTING)
     else:
         print(GREEN + "Final filter in sample " + sample + END_FORMATTING)
-        vcf_consensus_filter(in_final_vcf,  distance=1, AF=0.75, QD=10, window_10=3)
+        vcf_consensus_filter(in_final_vcf,  distance=1, AF=0.75, QD=10, window_10=3, dp_AF=10, AF_dp=0.90, bed_to_filter=bed_polymorphism)
 
 
 print("\n\n" + MAGENTA + BOLD + "SAMPLE VARIANT CALL FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")

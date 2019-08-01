@@ -12,7 +12,7 @@ from bbduk_trimmer import bbduk_trimming
 from pe_mapper import bwa_mapping, sam_to_index_bam
 from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplotype_caller, call_variants, \
     select_variants, hard_filter, combine_gvcf, select_pass, select_pass_variants, recalibrate_bam, \
-    samples_from_vcf,split_vcf_saples
+    samples_from_vcf,split_vcf_saples, combine_vcf
 from vcf_process import vcf_consensus_filter
 from annotation import replace_reference, snpeff_annotation, final_annotation, create_report, css_report
 from species_determination import mash_screen, extract_species_from_screen
@@ -79,6 +79,7 @@ def get_arguments():
 
     vcf_group = parser.add_argument_group('VCF filters', 'parameters for variant filtering')
 
+    vcf_group.add_argument('-b', '--bed_remove', type=str, required=False, default="TB", help='BED file with position ranges to filter from final vcf')
     vcf_group.add_argument('-m', '--maxnocallfr', type=str, required=False, default=0.2, help='maximun proportion of samples with non genotyped alleles')
 
     params_group = parser.add_argument_group('Parameters', 'parameters for diferent stringent conditions')
@@ -132,7 +133,15 @@ picard_dictionary(args)
 samtools_faidx(args)
 
 #DECLARE FOLDERS CREATED IN PIPELINE ################
+#AND KEY FILES ######################################
 #####################################################
+#Annotation related
+script_dir = os.path.dirname(os.path.realpath(__file__))
+annotation_dir = os.path.join(script_dir, "annotation/genes")
+if args.bed_remove == "TB":
+    bed_polymorphism = os.path.join(annotation_dir, "MTB_repeats_annot.bed")
+
+#Output related
 out_trim_dir = os.path.join(args.output, "Trimmed")
 out_map_dir = os.path.join(args.output, "Bam")
 out_cov_dir = os.path.join(args.output, "Coverage")
@@ -460,23 +469,20 @@ else:
 
 #PASS FILTER VARIANTS 2/2 FOR RECALIBRATION #############
 #########################################################
-out_vcfhfsnppass_name = group_name + ".cohort.snp.hf.pass.vcf"
-out_vcfhfindelpass_name = group_name + ".cohort.indel.hf.pass.vcf"
-output_vcfhfsnppass_file = os.path.join(out_vcf_dir, out_vcfhfsnppass_name)
-output_vcfhfindelpass_file = os.path.join(out_vcf_dir, out_vcfhfindelpass_name)
+out_vcfhfcombined_name = group_name + ".cohort.combined.hf.vcf"
+output_vcfhfcombined_file = os.path.join(out_vcf_dir, out_vcfhfcombined_name)
 
 
-if os.path.isfile(output_vcfhfindelpass_file) and os.path.isfile(output_vcfhfsnppass_file):
-    print(YELLOW + DIM + output_vcfhfsnppass_file + " EXIST\nOmmiting PASS Filtering (Group) for group " + group_name + END_FORMATTING)
+if os.path.isfile(output_vcfhfcombined_file):
+    print(YELLOW + DIM + output_vcfhfcombined_file + " EXIST\nOmmiting combination for group " + group_name + END_FORMATTING)
 else:
-    print(GREEN + "PASS Filtering Variants (Group) in group " + group_name + END_FORMATTING)
-    select_pass_variants(output_vcfhfsnp_file, nocall_fr=0.2)
-    select_pass_variants(output_vcfhfindel_file, nocall_fr=0.2)
+    print(GREEN + "Combining both vcf SNP and INDEL in group " + group_name + END_FORMATTING)
+    combine_vcf(output_vcfhfsnp_file, output_vcfhfindel_file, name_out=False)
 
 if args.all_cohort == True:
-    split_vcf_saples(output_vcfhfsnppass_file, sample_list=False)
+    split_vcf_saples(output_vcfhfcombined_file, sample_list=False)
 else:
-    split_vcf_saples(output_vcfhfsnppass_file, sample_list=sample_list_F)
+    split_vcf_saples(output_vcfhfcombined_file, sample_list=sample_list_F)
 
 
 
@@ -491,8 +497,8 @@ for r1_file, r2_file in zip(r1, r2):
 
         ################FINAL VCF FILTERING##################
         #####################################################
-        out_final_name = sample + ".snp.hf.pass.final.vcf"
-        in_final_name = sample + ".snp.hf.pass.vcf"
+        out_final_name = sample + ".combined.hf.SNP.final.vcf"
+        in_final_name = sample + ".combined.hf.vcf"
         output_final_vcf = os.path.join(out_vcf_dir, out_final_name)
         in_final_vcf = os.path.join(out_vcf_dir, in_final_name)
 
@@ -500,7 +506,7 @@ for r1_file, r2_file in zip(r1, r2):
             print(YELLOW + DIM + output_final_vcf + " EXIST\nOmmiting Final filter for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Final filter in sample " + sample + END_FORMATTING)
-            vcf_consensus_filter(in_final_vcf,  distance=1, AF=0.75, QD=10, window_10=3)
+            vcf_consensus_filter(in_final_vcf, distance=1, AF=0.75, QD=15, window_10=3, dp_limit=8, dp_AF=10, AF_dp=0.80, bed_to_filter=False, var_type="SNP")
 
 
 print("\n\n" + MAGENTA + BOLD + "VARIANT CALL FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")
