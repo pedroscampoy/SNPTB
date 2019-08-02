@@ -1,11 +1,11 @@
 6575:fluoroquinolones (FQ),T
 6620:fluoroquinolones (FQ),C,A
 6621:fluoroquinolones (FQ),C
-6734:fluoroquinolones (FQ),G
+6734:fluoroquinolones (FQ),G,A
 6735:fluoroquinolones (FQ),C
 6736:fluoroquinolones (FQ),G
 6737:fluoroquinolones (FQ),C
-6738:fluoroquinolones (FQ),A
+6738:fluoroquinolones (FQ),A,T
 6741:fluoroquinolones (FQ),T
 6742:fluoroquinolones (FQ),T
 6749:fluoroquinolones (FQ),A
@@ -31,15 +31,16 @@
 761100:rifampicin (RMP),A
 761101:rifampicin (RMP),C,T
 761108:rifampicin (RMP),T
-761109:rifampicin (RMP),T
+761109:rifampicin (RMP),T,TT
 761110:rifampicin (RMP),G,T
 761111:rifampicin (RMP),G
-761120:rifampicin (RMP),C,G
+761117:rifampicin (RMP),C
+761120:rifampicin (RMP),G
 761128:rifampicin (RMP),T,G
-761139:rifampicin (RMP),A,G,T
+761139:rifampicin (RMP),A,G,T,TG
 761140:rifampicin (RMP),C,G,T
 761141:rifampicin (RMP),A
-761154:rifampicin (RMP),G
+761154:rifampicin (RMP),G,T
 761155:rifampicin (RMP),G,T
 761161:rifampicin (RMP),C
 761277:rifampicin (RMP),T
@@ -67,7 +68,7 @@
 1674782:isoniazid (INH) ethionamide (ETH),C
 1833909:pyrazinamide (PZA),C
 1834325:pyrazinamide (PZA),A
-1834855:pyrazinamide (PZA),C
+1834852:pyrazinamide (PZA),C
 1917946:capreomycin (CPR),T
 1917979:capreomycin (CPR),T
 1917991:capreomycin (CPR),T
@@ -75,7 +76,7 @@
 1918139:capreomycin (CPR),A
 1918144:capreomycin (CPR),G
 1918211:capreomycin (CPR),A
-1918292:capreomycin (CPR),C
+1918292:capreomycin (CPR),C,G
 1918322:capreomycin (CPR),A
 1918388:capreomycin (CPR),C
 1918487:capreomycin (CPR),T
@@ -140,7 +141,7 @@
 2288874:pyrazinamide (PZA),G
 2288880:pyrazinamide (PZA),G
 2288883:pyrazinamide (PZA),C,T,G
-2288885:pyrazinamide (PZA),T
+2288885:pyrazinamide (PZA),T,A
 2288886:pyrazinamide (PZA),G,T
 2288887:pyrazinamide (PZA),G,C
 2288895:pyrazinamide (PZA),C,G
@@ -156,7 +157,7 @@
 2288944:pyrazinamide (PZA),C,G
 2288945:pyrazinamide (PZA),T
 2288952:pyrazinamide (PZA),G,T
-2288953:pyrazinamide (PZA),T
+2288953:pyrazinamide (PZA),T,A
 2288954:pyrazinamide (PZA),T
 2288955:pyrazinamide (PZA),C,G
 2288956:pyrazinamide (PZA),G,C
@@ -181,6 +182,7 @@
 2289039:pyrazinamide (PZA),G,T
 2289040:pyrazinamide (PZA),G,C
 2289043:pyrazinamide (PZA),G
+2289049:pyrazinamide (PZA),AT
 2289050:pyrazinamide (PZA),C
 2289052:pyrazinamide (PZA),C
 2289054:pyrazinamide (PZA),C
@@ -195,12 +197,12 @@
 2289082:pyrazinamide (PZA),A
 2289089:pyrazinamide (PZA),T
 2289090:pyrazinamide (PZA),C,G
-2289091:pyrazinamide (PZA),A
+2289091:pyrazinamide (PZA),A,C
 2289096:pyrazinamide (PZA),G,C
 2289097:pyrazinamide (PZA),T
 2289100:pyrazinamide (PZA),C,A
 2289103:pyrazinamide (PZA),C,G
-2289108:pyrazinamide (PZA),C
+2289108:pyrazinamide (PZA),C,G
 2289111:pyrazinamide (PZA),C
 2289133:pyrazinamide (PZA),A
 2289138:pyrazinamide (PZA),G
@@ -229,6 +231,7 @@
 2289222:pyrazinamide (PZA),T,C
 2289223:pyrazinamide (PZA),A
 2289225:pyrazinamide (PZA),G
+2289226:pyrazinamide (PZA),CA
 2289231:pyrazinamide (PZA),G,C
 2289234:pyrazinamide (PZA),T
 2289235:pyrazinamide (PZA),G
@@ -258,9 +261,9 @@
 4247431:ethambutol (EMB),A,C,T
 4247469:ethambutol (EMB),C
 4247495:ethambutol (EMB),T
-4247496:ethambutol (EMB),G
+4247496:ethambutol (EMB),G,TG
 4247507:ethambutol (EMB),C
-4247513:ethambutol (EMB),C
+4247513:ethambutol (EMB),C,T
 4247573:ethambutol (EMB),A
 4247717:ethambutol (EMB),G
 4247723:ethambutol (EMB),T
@@ -306,12 +309,11 @@
 761116:rifampicin_(RMP),G
 761127:rifampicin_(RMP),CA
 1416212:ethambutol_(EMB),C
-1417019:ethambutol_(EMB),T
 1673393:isoniazid_(INH),C
 1673406:isoniazid_(INH),T
 1673431:isoniazid_(INH),A
 1918125:streptomycin_(SM)_amikacin_(AMK)_kanamycin_(KAN)_capreomycin_(CPR),A
-1918135:streptomycin_(SM)_amikacin_(AMK)_kanamycin_(KAN)_capreomycin_(CPR),C,C
+1918135:streptomycin_(SM)_amikacin_(AMK)_kanamycin_(KAN)_capreomycin_(CPR),C
 1918136:streptomycin_(SM)_amikacin_(AMK)_kanamycin_(KAN)_capreomycin_(CPR),A
 1918202:streptomycin_(SM)_amikacin_(AMK)_kanamycin_(KAN)_capreomycin_(CPR),G
 1918213:streptomycin_(SM)_amikacin_(AMK)_kanamycin_(KAN)_capreomycin_(CPR),C
@@ -341,5 +343,4 @@
 3646959:ethambutol_(EMB),T
 3647041:ethambutol_(EMB),G
 4245147:ethambutol_(EMB),T
-4245969:ethambutol_(EMB),T
 4407904:streptomycin_(SM)_amikacin_(AMK)_kanamycin_(KAN)_capreomycin_(CPR),A
