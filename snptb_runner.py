@@ -506,7 +506,7 @@ for r1_file, r2_file in zip(r1, r2):
             print(YELLOW + DIM + output_final_vcf + " EXIST\nOmmiting Final filter for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Final filter in sample " + sample + END_FORMATTING)
-            vcf_consensus_filter(in_final_vcf, distance=1, AF=0.75, QD=15, window_10=3, dp_limit=8, dp_AF=10, AF_dp=0.80, bed_to_filter=False, var_type="SNP")
+            vcf_consensus_filter(in_final_vcf, distance=1, AF=0.75, QD=15, window_10=3, dp_limit=8, dp_AF=10, AF_dp=0.80, bed_to_filter=bed_polymorphism, var_type="SNP")
 
 
 print("\n\n" + MAGENTA + BOLD + "VARIANT CALL FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")
@@ -518,22 +518,23 @@ for root, _, files in os.walk(out_vcf_dir):
     for name in files:
         filename = os.path.join(root, name)
         output_path = os.path.join(out_annot_dir, name)
-        if filename.endswith(".final.vcf"):
+        if filename.endswith("combined.hf.vcf"):
             sample = name.split(".")[0]
-            #ANNOTATION -AUTO AND SPECIFIC- ###################
-            ###################################################
-            out_annot_name = sample + ".snp.hf.pass.final.annot.tsv"
-            output_annot_file = os.path.join(out_annot_dir, out_annot_name)
+            if sample in sample_list_F:
+                #ANNOTATION -AUTO AND SPECIFIC- ###################
+                ###################################################
+                out_annot_name = sample + ".combined.hf.annot.tsv"
+                output_annot_file = os.path.join(out_annot_dir, out_annot_name)
 
-            if os.path.isfile(output_annot_file):
-                print(YELLOW + DIM + output_annot_file + " EXIST\nOmmiting Annotation for sample " + sample + END_FORMATTING)
-            else:
-                print(GREEN + "Annotating snps in sample " + sample + END_FORMATTING)
-                replace_reference(filename, "MTB_anc", "Chromosome", output_path)
-                snpeff_annotation(args, output_path, database="Mycobacterium_tuberculosis_h37rv")
-                vcf_path = (".").join(output_path.split(".")[:-1])
-                annot_vcf = vcf_path + ".annot"
-                final_annotation(annot_vcf)
+                if os.path.isfile(output_annot_file):
+                    print(YELLOW + DIM + output_annot_file + " EXIST\nOmmiting Annotation for sample " + sample + END_FORMATTING)
+                else:
+                    print(GREEN + "Annotating snps in sample " + sample + END_FORMATTING)
+                    replace_reference(filename, "MTB_anc", "Chromosome", output_path)
+                    snpeff_annotation(args, output_path, database="Mycobacterium_tuberculosis_h37rv")
+                    vcf_path = (".").join(output_path.split(".")[:-1])
+                    annot_vcf = vcf_path + ".annot"
+                    final_annotation(annot_vcf)
 
 
 
@@ -549,31 +550,31 @@ with open(all_report_file, 'w+') as fa:
         args.r1_file = r1_file
         args.r2_file = r2_file
         sample = extract_sample(r1_file, r2_file)
+        if sample in sample_list_F:
+            #SPECIES DETERMINATION USING mash #################
+            ###################################################
+            out_mash_name = sample + ".screen.tab"
+            output_mash_file = os.path.join(out_species_dir, out_mash_name)
+            
+            if os.path.isfile(output_mash_file):
+                print(YELLOW + DIM + output_mash_file + " EXIST\nOmmiting Species calculation for sample " + sample + END_FORMATTING)
+            else:
+                print(GREEN + "Determining species content in sample " + sample + END_FORMATTING)
+                mash_screen(args, winner=True, r2=False, mash_database="/home/laura/DATABASES/Mash/refseq.genomes.k21s1000.msh")
 
-        #SPECIES DETERMINATION USING mash #################
-        ###################################################
-        out_mash_name = sample + ".screen.tab"
-        output_mash_file = os.path.join(out_species_dir, out_mash_name)
-        
-        if os.path.isfile(output_mash_file):
-            print(YELLOW + DIM + output_mash_file + " EXIST\nOmmiting Species calculation for sample " + sample + END_FORMATTING)
-        else:
-            print(GREEN + "Determining species content in sample " + sample + END_FORMATTING)
-            mash_screen(args, winner=True, r2=False, mash_database="/home/laura/DATABASES/Mash/refseq.genomes.k21s1000.msh")
+            fa.write(css_report)
 
-        fa.write(css_report)
-
-        for root, _, files in os.walk(out_annot_dir):
-            for name in files:
-                filename = os.path.join(root, name)
-                output_path = os.path.join(out_annot_dir, name)
-                if filename.endswith("final.annot.tsv") and sample in filename:
-                    print(GREEN + "Creating report in sample: " + sample + END_FORMATTING)
-                    sample_report = extract_species_from_screen(output_mash_file)
-                    report_sample = create_report(filename, species=sample_report[0], species_report=sample_report[1])
-                    fa.write(report_sample)
-                    fa.write("<br /> <hr>")
-                    print(GREEN + "Report created for sample: " + sample + END_FORMATTING)
+            for root, _, files in os.walk(out_annot_dir):
+                for name in files:
+                    filename = os.path.join(root, name)
+                    output_path = os.path.join(out_annot_dir, name)
+                    if filename.endswith(".annot.tsv") and sample in filename:
+                        print(GREEN + "Creating report in sample: " + sample + END_FORMATTING)
+                        sample_report = extract_species_from_screen(output_mash_file)
+                        report_sample = create_report(filename, species=sample_report[0], species_report=sample_report[1])
+                        fa.write(report_sample)
+                        fa.write("<br /> <hr>")
+                        print(GREEN + "Report created for sample: " + sample + END_FORMATTING)
 
 
 print("\n\n" + MAGENTA + BOLD + "ANNOTATION FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")

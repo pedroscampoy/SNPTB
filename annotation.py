@@ -21,7 +21,7 @@ annotation_dir_res = os.path.join(script_dir, "annotation/resistance")
 essential_file = os.path.join(annotation_dir, "dict_locus_essential.txt")
 product_file = os.path.join(annotation_dir, "dict_locus_product.txt")
 resistance_file_V1 = os.path.join(annotation_dir_res, "dict_position_resistance_v1.txt")
-resistance_file_v2 = os.path.join(annotation_dir_res, "dict_position_resistance_v2.txt") #Crated on 190718
+resistance_file_v2 = os.path.join(annotation_dir_res, "dict_position_resistance_v2_inf.txt") #Crated on 190718
 
 
 dict_essential = {}
@@ -47,6 +47,18 @@ with open (resistance_file_V1, 'r') as f:
 with open (resistance_file_v2, 'r') as f:
     for line in f:
         dict_res_v2[int(line.split(":")[0])] = line.split(":")[1].strip().split(",")
+
+
+def annotate_bed_file(dict_position, position):
+    """
+    Identify a position within a range
+    credits: https://stackoverflow.com/questions/6053974/python-efficiently-check-if-integer-is-within-many-ranges
+    """
+    #dict_position = bed_to_dict(bed_file)
+    if any(start <= position <= end for (start, end) in dict_position.items()):
+        return True
+    else:
+        return False
 
 
 def replace_reference(input, ref_old, ref_new, output):
@@ -146,7 +158,7 @@ def import_annot_to_pandas(vcf_file, sep='\t'):
         
         dataframe['len_AD'] = dataframe['AD'].str.split(",").str.len()
         dataframe['REF_AD'] = dataframe['AD'].str.split(",").str[0]
-        #dataframe['ALT_AD'] = dataframe['AD'].str.split(",").str[1]
+
         dataframe['ALT_AD'] = dataframe.apply(calculate_ALT_AD, axis=1)
         dataframe[['gt0','gt1']] = dataframe['GT'].str.split(r'[/|\|]', expand=True)
 
@@ -321,7 +333,7 @@ def add_resistance_snp(vcf_df, dict_resistance_position=dict_res_v1):
                 list_resistance.append(str(position)) #POS
                 list_resistance.append(snp_resist)
                 #Evaluate High confidence
-                if (int(position) in dict_high_confidence.keys()) and (dict_high_confidence[int(position)] in nucleotides):
+                if (int(position) in dict_high_confidence.keys()) and (dict_high_confidence[int(position)] == alt_nucleotide):
                     list_resistance.append("*")
                     
                     vcf_df.loc[index,'Resistance'] = resistance + "*"
@@ -397,7 +409,12 @@ def get_reverse(nucleotyde):
                      'T' : 'A',
                      'C' : 'G',
                      'G': 'C'}
-    return nucleotyde_rev[nucleotyde]
+    if len(nucleotyde) > 1:
+        nucleotyde_str = nucleotyde[::-1] #Reverse nucleotide
+        nucleotyde_str_fin = "".join([nucleotyde_rev[x] for x in nucleotyde_str]) #Complement nucleotide
+        return nucleotyde_str_fin
+    else:
+        return nucleotyde_rev[nucleotyde]
 
 css_report = """
 
