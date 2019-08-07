@@ -22,12 +22,16 @@ essential_file = os.path.join(annotation_dir, "dict_locus_essential.txt")
 product_file = os.path.join(annotation_dir, "dict_locus_product.txt")
 resistance_file_V1 = os.path.join(annotation_dir_res, "dict_position_resistance_v1.txt")
 resistance_file_v2 = os.path.join(annotation_dir_res, "dict_position_resistance_v2_inf.txt") #Crated on 190718
+resistance_file_v3 = os.path.join(annotation_dir_res, "dict_position_resistance_v2.txt") #Crated on 190718
+high_confidence_file = os.path.join(annotation_dir_res, "dict_position_resistance_high_conf.txt")
 
 
 dict_essential = {}
 dict_product = {}
 dict_res_v1 = {}
 dict_res_v2 = {}
+dict_res_v3 = {}
+dict_high_conf = {}
 
 #Create dictionary of essential genes
 with open(essential_file, 'r') as f:
@@ -48,18 +52,70 @@ with open (resistance_file_v2, 'r') as f:
     for line in f:
         dict_res_v2[int(line.split(":")[0])] = line.split(":")[1].strip().split(",")
 
+with open (resistance_file_v3, 'r') as f:
+    for line in f:
+        dict_res_v3[int(line.split(":")[0])] = line.split(":")[1].strip().split(",")
 
-def annotate_bed_file(dict_position, position):
+with open (high_confidence_file, 'r') as f:
+    for line in f:
+        dict_high_conf[int(line.split(":")[0])] = line.split(":")[1].strip().split(",")
+
+
+def bed_to_df(bed_file):
+    """
+    Import bed file separated by tabs into a pandas dataframe
+    -Handle header line
+    -Handle with and without description (If there is no description adds true or false to annotated df)
+    """
+    header_lines = 0
+    #Handle likely header by checking colums 2 and 3 as numbers
+    with open(bed_file, 'r') as f:
+        next_line = f.readline().strip()
+        line_split = next_line.split(None) #This split by any blank character
+        start = line_split[1]
+        end = line_split[2]
+        while not start.isdigit() and not end.isdigit():
+            header_lines = header_lines + 1
+            next_line = f.readline().strip()
+            line_split = next_line.split(None) #This split by any blank character
+            start = line_split[1]
+            end = line_split[2]
+
+    if header_lines == 0:
+        dataframe = pd.read_csv(bed_file, sep="\t", header=None) #delim_whitespace=True
+    else:
+        dataframe = pd.read_csv(bed_file, sep="\t", skiprows=header_lines, header=None) #delim_whitespace=True
+    if dataframe.shape[1] == 3:
+        dataframe['description'] = True
+        dataframe.columns = ["#CHROM", "start", "end", "description"]
+    else:
+        dataframe.columns = ["#CHROM", "start", "end", "description"]
+        
+    return dataframe
+
+def add_bed_info(bed_df, position):
     """
     Identify a position within a range
     credits: https://stackoverflow.com/questions/6053974/python-efficiently-check-if-integer-is-within-many-ranges
     """
     #dict_position = bed_to_dict(bed_file)
-    if any(start <= position <= end for (start, end) in dict_position.items()):
-        return True
+    if any(start <= position <= end for (start, end) in zip(bed_df.start.values.tolist(), bed_df.end.values.tolist())):
+        description_out = bed_df.description[(bed_df.start <= position) & (bed_df.end >= position)].values[0]
+        return description_out
     else:
         return False
 
+def annotate_bed_s(vcf_annot, *bed_files):
+    """
+    More on list comprehension: https://stackoverflow.com/questions/3371269/call-int-function-on-every-list-element
+    """
+    #bed_files = [ os.path.abspath(x) for x in bed_files ]
+    bed_files = list(map(os.path.abspath, bed_files)) #get full path for all files
+    variable_list = [ x.split("/")[-1].split(".")[0] for x in bed_files ] #extract file name and use it as header
+    
+    for variable_name, bed_file in zip(variable_list,bed_files):
+        bed_annot_df = bed_to_df(bed_file)
+        vcf_annot[variable_name] = vcf_annot['POS'].apply(lambda x: add_bed_info(bed_annot_df,x))
 
 def replace_reference(input, ref_old, ref_new, output):
     """
@@ -78,8 +134,6 @@ def replace_reference(input, ref_old, ref_new, output):
                 new = ref_new + "\t"
                 line = line.replace(ref, new)
                 fo.write(line)
-
-
 
 def snpeff_annotation(args, vcf_file, database="Mycobacterium_tuberculosis_h37rv"):
     #http://snpeff.sourceforge.net/SnpEff_manual.html
@@ -200,7 +254,6 @@ def import_annot_to_pandas(vcf_file, sep='\t'):
     return dataframe
 
 
-
 def add_lineage_Coll(vcf_df):
     dict_lineage_position = {
         '615938' : ['A', '1'],
@@ -292,27 +345,7 @@ def add_lineage_Coll(vcf_df):
         print("No lineage were found\n")
 
 
-def add_resistance_snp(vcf_df, dict_resistance_position=dict_res_v1):
-    dict_high_confidence = {6620: 'A', 6621: 'C', 6734: 'G', 6735: 'C', 6736: 'G', 6737: 'C', 6738: 'A', 6741: 'T', 6742: 'T',
-                         6750: 'T', 7563: 'T', 7564: 'C', 7570: 'T', 7572: 'C', 7581: 'T', 7582: 'C', 760314: 'T', 761101: 'T', 
-                         761109: 'T', 761110: 'T', 761139: 'T', 761140: 'G', 761155: 'T', 761161: 'C', 761277: 'T', 781687: 'G', 
-                         781822: 'G', 1473246: 'G', 1473247: 'T', 1473329: 'T', 1673425: 'T', 1673432: 'C', 1674481: 'G', 2155168: 'A', 
-                         2155169: 'C', 2155214: 'C', 2155289: 'G', 2288683: 'G', 2288697: 'G', 2288703: 'C', 2288718: 'G', 2288719: 'C', 
-                         2288740: 'G', 2288752: 'G', 2288754: 'G', 2288761: 'G', 2288764: 'G', 2288772: 'C', 2288778: 'C', 2288779: 'T', 
-                         2288805: 'A', 2288806: 'G', 2288817: 'A', 2288818: 'C', 2288823: 'G', 2288826: 'C', 2288827: 'G', 2288828: 'C', 
-                         2288830: 'G', 2288832: 'G', 2288833: 'C', 2288838: 'T', 2288839: 'G', 2288841: 'A', 2288847: 'T', 2288848: 'A', 
-                         2288853: 'C', 2288857: 'A', 2288868: 'C', 2288869: 'A', 2288874: 'G', 2288880: 'G', 2288883: 'G', 2288886: 'T', 
-                         2288887: 'C', 2288895: 'G', 2288920: 'G', 2288928: 'T', 2288930: 'T', 2288931: 'A', 2288933: 'C', 2288934: 'C', 
-                         2288935: 'C', 2288938: 'T', 2288944: 'G', 2288945: 'T', 2288952: 'T', 2288954: 'T', 2288955: 'G', 2288956: 'G', 
-                         2288957: 'C', 2288960: 'C', 2288961: 'G', 2288962: 'G', 2288971: 'A', 2288988: 'C', 2288997: 'C', 2288998: 'C', 
-                         2289000: 'G', 2289001: 'C', 2289028: 'G', 2289029: 'T', 2289030: 'C', 2289038: 'A', 2289039: 'T', 2289043: 'G', 
-                         2289050: 'C', 2289057: 'A', 2289068: 'C', 2289070: 'G', 2289071: 'C', 2289072: 'G', 2289081: 'T', 2289082: 'A', 
-                         2289089: 'T', 2289090: 'G', 2289091: 'A', 2289097: 'T', 2289100: 'A', 2289103: 'G', 2289111: 'C', 2289133: 'A', 
-                         2289138: 'G', 2289140: 'C', 2289150: 'C', 2289162: 'G', 2289171: 'T', 2289180: 'C', 2289186: 'G', 2289193: 'T', 
-                         2289200: 'T', 2289202: 'G', 2289203: 'C', 2289206: 'C', 2289207: 'G', 2289214: 'T', 2289218: 'T', 2289219: 'G', 
-                         2289220: 'T', 2289222: 'C', 2289223: 'A', 2289225: 'G', 2289231: 'G', 2289234: 'T', 2289239: 'T', 2289240: 'G', 
-                         2289248: 'C', 2289252: 'A', 4247429: 'C', 4247430: 'C', 4247431: 'T', 4247729: 'T', 4247730: 'A', 4248003: 'G'}
-
+def add_resistance_snp(vcf_df, dict_high_confidence=dict_high_conf, dict_resistance_position=dict_res_v1):
     list_resistance = []
     
     vcf_df['Resistance'] = np.nan
@@ -332,8 +365,10 @@ def add_resistance_snp(vcf_df, dict_resistance_position=dict_res_v1):
                 list_resistance.append(resistance)
                 list_resistance.append(str(position)) #POS
                 list_resistance.append(snp_resist)
-                #Evaluate High confidence
-                if (int(position) in dict_high_confidence.keys()) and (dict_high_confidence[int(position)] == alt_nucleotide):
+                #Evaluate High confidence (1.Position; 2. Nucleotide; 3. yes value)
+                if (int(position) in dict_high_confidence.keys()) and \
+                (alt_nucleotide in dict_high_confidence[int(position)][1:] and \
+                dict_high_confidence[int(position)][0] == 'yes'):
                     list_resistance.append("*")
                     
                     vcf_df.loc[index,'Resistance'] = resistance + "*"
@@ -362,7 +397,7 @@ def add_product_cateory(row, dict_product=dict_product):
         return dict_product[row.Gene_ID]
 
 
-def final_annotation(vcf_file_annot):
+def final_annotation(vcf_file_annot, *bed_files):
     """
     import annotated vcf with snpEff
     add Lineage info -> output final lineage to an external file
@@ -378,11 +413,13 @@ def final_annotation(vcf_file_annot):
     #extend_raw = ".raw.annot.tab"
     extend_final = ".annot.tsv"
 
+    annotate_bed_s(df_vcf, *bed_files)
+
     #Add essential info
-    df_vcf['Is_essential'] = df_vcf.apply(add_essential_cateory, axis=1)
+    #df_vcf['Is_essential'] = df_vcf.apply(add_essential_cateory, axis=1)
 
     #Add protein product
-    df_vcf['Product'] = df_vcf.apply(add_product_cateory, axis=1)
+    #df_vcf['Product'] = df_vcf.apply(add_product_cateory, axis=1)
 
     #Add lineage info 
     add_lineage_Coll(df_vcf)
