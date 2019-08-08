@@ -429,15 +429,15 @@ def final_annotation(vcf_file_annot, *bed_files):
 
 
     #Retrieve only annotation fields
-    df_vcf_annot = df_vcf[['#CHROM', 'POS', 'ID', 'REF', 'ALT','Annotation',
-       'Annotation_Impact', 'Gene_Name', 'Gene_ID', 'Feature_Type',
-       'Feature_ID', 'Transcript_BioType', 'Rank', 'HGVS.c', 'HGVS.p',
-       'cDNA.pos / cDNA.length', 'CDS.pos / CDS.length', 'AA.pos / AA.length','Is_essential','Product', 'Lineage', 'Resistance']]
+    #df_vcf_annot = df_vcf[['#CHROM', 'POS', 'ID', 'REF', 'ALT','Annotation',
+    #   'Annotation_Impact', 'Gene_Name', 'Gene_ID', 'Feature_Type',
+    #   'Feature_ID', 'Transcript_BioType', 'Rank', 'HGVS.c', 'HGVS.p',
+    #   'cDNA.pos / cDNA.length', 'CDS.pos / CDS.length', 'AA.pos / AA.length','Is_essential','Product', 'Lineage', 'Resistance']]
     
     #output all raw info into a file
     new_out_file = tab_name + extend_final
     output_raw_tab = os.path.join(output_dir, new_out_file)
-    df_vcf_annot.to_csv(output_raw_tab, sep='\t', index=False)
+    df_vcf.to_csv(output_raw_tab, sep='\t', index=False)
     
 
 def get_reverse(nucleotyde):
@@ -459,6 +459,11 @@ css_report = """
 
     body {
         font: normal 20px Verdana, Arial, sans-serif;
+    }
+
+    p {
+        font-size: 15px
+        font-weight: normal
     }
 
     table {
@@ -510,13 +515,13 @@ def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis
 
         f.write(css)
 
-        line_sample = "Sample name: " + sample + "<br /><br />"
+        line_sample = "Sample name: " + sample + "<br /><br />\n"
         f.write(line_sample)
         cummulative_report = cummulative_report + line_sample
 
-        line_species = "Species: " + "<i>" + str(species) + "</i>" + "<br /><br />"
+        line_species = "Species: " + "<i>" + str(species) + "</i>" + "<br /><br />\n"
         f.write(line_species)
-        cummulative_report = cummulative_report + species_report + "<br />"
+        cummulative_report = cummulative_report + species_report + "<br />\n"
 
         df_annot = pd.read_csv(tab_annot, sep="\t", header=0)
         
@@ -537,17 +542,17 @@ def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis
                     if str(list_lineage[sublineage_n]).startswith(str(list_lineage[sublineage_n + 1])):
                         asterix = asterix + "*"
             final_lineage = str(list_lineage[0]) #+ " " + asterix
-            line_lineage = "This strain has lineage position(s): " + "<b>" + str(final_lineage) + "</b>" + "<br /><br />"
+            line_lineage = "This strain has lineage position(s): " + "<b>" + str(final_lineage) + "<br />\n" + "<br /><br />\n"
             f.write(line_lineage)
             cummulative_report = cummulative_report + line_lineage
         else:
-            line_lineage = "No lineage positions were found<br /><br />"
+            line_lineage = "No lineage positions were found<br /><br />\n"
             f.write(line_lineage)
             cummulative_report = cummulative_report + line_lineage
         
         #Output Resistance info
         if len(list_resistance) > 0:
-            line_res_1 = "This strain has " + str(len(list_resistance)) + " resistance position(s):<br />"
+            line_res_1 = "This strain has " + str(len(list_resistance)) + " resistance position(s):<br />\n"
             f.write(line_res_1)
             cummulative_report = cummulative_report + line_res_1
             """
@@ -601,7 +606,10 @@ def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis
             f.write("No Resistance positions were found<br />")
             cummulative_report = cummulative_report + "No Resistance positions were found<br />\n"
 
-        f.write("<br /><br />Este informe debe ser utilizado exclusivamente con fines de investigación. No utilizar ningún dato con fines asistenciales.<br />")
+        f.write("\n<br />\n \
+            <p>Este informe debe ser utilizado exclusivamente con fines de investigación. No utilizar ningún dato con fines asistenciales.</p>\n \
+            <p>Los asteriscos (*) al final del campo 'Resistance' hacen referencia a posiciones de alta confianza.</p>\n \
+            <br />\n")
 
     return cummulative_report
 
