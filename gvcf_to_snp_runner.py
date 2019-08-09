@@ -66,7 +66,7 @@ def get_arguments():
     vcf_group = parser.add_argument_group('VCF filters', 'parameters for variant filtering')
     
     vcf_group.add_argument('-b', '--bed_remove', type=str, required=False, default="TB", help='BED file with position ranges to filter from final vcf')
-    vcf_group.add_argument('-m', '--maxnocallfr', type=str, required=False, default=0.2, help='maximun proportion of samples with non genotyped alleles')
+    vcf_group.add_argument('-m', '--maxnocallfr', type=str, required=False, default=0.1, help='maximun proportion of samples with non genotyped alleles')
 
     params_group = parser.add_argument_group('Parameters', 'parameters for diferent stringent conditions')
 
@@ -173,7 +173,7 @@ else:
     combine_vcf(output_vcfhfsnp_file, output_vcfhfindel_file, name_out=False)
 
 
-split_vcf_saples(output_vcfhfcombined_file, sample_list=False)
+split_vcf_saples(output_vcfhfcombined_file, sample_list=False, nocall_fr=args.maxnocallfr)
 
 
 

@@ -411,7 +411,7 @@ def combine_gvcf(args, recalibrate=False, all_gvcf=False):
 
     execute_subprocess(cmd)
 
-def select_pass_variants(raw_vcf, nocall_fr=0.2):
+def select_pass_variants(raw_vcf, nocall_fr=0.1):
     """
     Filter a vcf file. Output a vcf file with PASS positions adding a .pass to the output file
     Used since it creates the neccesasary vcf index
@@ -572,7 +572,7 @@ def combine_vcf(vcf_file_1, vcf_file_2, name_out=False):
                             list_pos.append(position)
 
 
-def split_vcf_saples(vcf_file, sample_list=False):
+def split_vcf_saples(vcf_file, sample_list=False, nocall_fr=0.1):
     """
     https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_variantutils_SelectVariants.php
     https://www.biostars.org/p/224702/
@@ -595,6 +595,7 @@ def split_vcf_saples(vcf_file, sample_list=False):
         output_vcf_name = sample_name + "." + vcf_file_extension
         output_vcf_file = os.path.join(vcf_dir_name, output_vcf_name)
         cmd = ["gatk", "SelectVariants",
+        "--max-nocall-fraction", str(nocall_fr),
         "--variant", vcf_file,
         "--sample-name", sample_name,
         "--exclude-non-variants",
