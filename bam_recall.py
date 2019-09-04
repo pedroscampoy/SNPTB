@@ -549,27 +549,41 @@ def combine_vcf(vcf_file_1, vcf_file_2, name_out=False):
     else:
         output_file = os.path.abspath(name_out)
     
-    list_pos = []
+    header_lines_list = []
+    header_lines_list_f1 = []
+    #Extract filter info from header since is the only difference between headers
+    with open(input_vcf_2, "r") as f2:
+            for line in f2:
+                if line.startswith("#"):
+                    header_lines_list.append(line)
+                    
+    #Extract filter info from file1
+    with open(input_vcf_1, "r") as f1:
+        for line in f1:
+            if line.startswith("##FILTER") and line not in header_lines_list:
+                header_lines_list_f1.append(line)
+                
+    #Combine header info, addiing filter info together
+    #Extract all lines starting with ##FILTER
+    filter_fields = [i for i in header_lines_list if i.startswith('##FILTER')]
+    #Obtain the index of the first line with index
+    filter_index = header_lines_list.index(filter_fields[0])
+    #Include the list within the header
+    header_lines_list[filter_index:filter_index] = header_lines_list_f1
+
+    variant_lines = []
     
     with open(input_vcf_1, "r") as f1:
         with open(input_vcf_2, "r") as f2:
             with open(output_file, "w+") as fout:
+                fout.write("".join(header_lines_list))
                 for line in f1:
-                    if line.startswith("#"): #write header only from first vcf
-                        fout.write(line)
-                    else:
-                        position =  int(line.split("\t")[1])
-                        if position not in list_pos:
-                            fout.write(line)
-                            list_pos.append(position)
+                    if not line.startswith("#"):
+                        variant_lines.append(line)
                 for line in f2:
-                    if line.startswith("#"):
-                        f2.readline()
-                    else:
-                        position =  int(line.split("\t")[1])
-                        if position not in list_pos:
-                            fout.write(line)
-                            list_pos.append(position)
+                    if not line.startswith("#") and line not in variant_lines:
+                        variant_lines.append(line)
+                fout.write("".join(variant_lines))
 
 
 def split_vcf_saples(vcf_file, sample_list=False, nocall_fr=0.1):
