@@ -461,7 +461,7 @@ def select_pass(raw_vcf):
                         f1.write(line)
 
 
-def recalibrate_bam(args, tb=True):
+def recalibrate_bam(args, tb=False):
     """
     BaseRecalibrator
     https://software.broadinstitute.org/gatk/documentation/tooldocs/current/org_broadinstitute_hellbender_tools_walkers_bqsr_BaseRecalibrator.php
@@ -475,6 +475,16 @@ def recalibrate_bam(args, tb=True):
     #output = os.path.abspath(args.output)
     input_reference = os.path.abspath(args.reference)
     
+    #Automate M. tuberculosis reference for aditional recalibraion positions
+    if ("NC_000962.3" in input_reference) or ("h37rv" in input_reference.lower()) or ("ancestor" in input_reference):
+        tb = True
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        reference_dir = os.path.join(script_dir, "reference")
+        if ("NC_000962.3" in input_reference) or ("h37rv" in input_reference.lower()):
+            reference_file = os.path.join(reference_dir, "190508_ddtb.NC_000962.3.BQSR.table")
+        elif ("ancestor" in input_reference):
+            reference_file = os.path.join(reference_dir, "190508_ddtb.BQSR.table")
+
     #group_name = output.split("/")[-1] #group_name
     sample_name = args.sample
     bam_input_dir = obtain_output_dir(args, "Bam")
@@ -497,10 +507,6 @@ def recalibrate_bam(args, tb=True):
     "--output", table_output_file]
 
     if tb == True:
-        script_dir = os.path.dirname(os.path.realpath(__file__))
-        reference_dir = os.path.join(script_dir, "reference")
-        reference_file = os.path.join(reference_dir, "190508_ddtb.BQSR.table")
-        #reference_file = os.path.join(reference_dir, "190508_ddtb.NC_000962.3.BQSR.table") 
         cmd_bqsr.append("--known-sites")
         cmd_bqsr.append(reference_file)
 

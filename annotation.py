@@ -117,15 +117,32 @@ def annotate_bed_s(vcf_annot, *bed_files):
         bed_annot_df = bed_to_df(bed_file)
         vcf_annot[variable_name] = vcf_annot['POS'].apply(lambda x: add_bed_info(bed_annot_df,x))
 
-def replace_reference(input, ref_old, ref_new, output):
+def extract_reference_vcf(input_vcf):
     """
-    THis function replace all instances of a reference in a vcf file
+    Read file until header ends and pick the first field corresponding to reference
     """
-    input_file = os.path.abspath(input)
+    with open(input_vcf, "r") as f:
+        next_line = f.readline().strip()
+        while next_line.startswith("#"):
+            next_line = f.readline()
+        
+    reference = next_line.split()[0]
+    return reference
+
+def replace_reference(input_vcf, output, ref_old=False, ref_new="Chromosome" ):
+    """
+    This function replace all instances of a reference in a vcf file
+    Depends on extract_reference_vcf
+    190909 - Function now uses chromosome name in file and replaces it with term provided (default "Chromosome")
+    """
+    input_file = os.path.abspath(input_vcf)
     output_file = os.path.abspath(output)
     output_dir = os.path.dirname(output)
 
     check_create_dir(output_dir)
+
+    if ref_old == False:
+        ref_old = extract_reference_vcf(input_file)
 
     with open(input_file, 'r') as fi:
         with open(output_file, 'w') as fo:
@@ -456,14 +473,42 @@ def get_reverse(nucleotyde):
 css_report = """
 
     <style type="text/css">
-
+    
     body {
+        background-color: #cecccc;
         font: normal 20px Verdana, Arial, sans-serif;
+        border: 1px solid black;
+        border-radius: 5px;
+        padding: auto;
+        margin-left: 25%;
+        margin-right: 25%;
+        max-width: 3500px;
+        min-width: 600px;
+            }
+
+    #center{
+        background-color: white;
+        border-radius: 5px;
+        padding: 10px;
+        display: block;
+        text-align: center;
+        height: 100%;
+
+    }
+
+    #info-div-center{
+        display: block;
+        text-align: center;
+    }
+
+    #info-text{
+        display: inline-block;
+        text-align: left;
     }
 
     p {
-        font-size: 15px
-        font-weight: normal
+        font-size: 15px;
+        font-weight: normal;
     }
 
     table {
@@ -472,6 +517,8 @@ css_report = """
         border-spacing: 0px;
         border-style: solid;
         border-width: 1px;
+        font-size: 0.75em;
+        width: 100%;
     }
 
     th, td {
@@ -486,11 +533,28 @@ css_report = """
     tr:nth-child(even) {background-color: #cecccc;}
     tr:hover {background-color:#7c7b7b;}
 
+    footer p{
+        padding-left: 10px;
+        font-size: 0.5em;
+        text-align: left;
+    }
+    @page {
+    size: A4;
+    margin: 0;
+    }
+
+    @media print {
+    html, body {
+        width: 210mm;
+        height: 297mm;
+        margin: 0px;
+    }}
+
     </style>
 
     """
 
-def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis", species_report="Main species: <i>Mycobacterium tuberculosis</i><br />"):
+def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis", species_report="Main species: <i>Mycobacterium tuberculosis</i><br>"):
     #<div style="position: absolute; bottom: 5px; color: red; background-color: rgb(253, 253, 253)">
     #Text disclaimer 
     #</div>
@@ -514,20 +578,27 @@ def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis
     with open(output_file, 'w+') as f:
 
         f.write(css)
-
-        line_sample = "Sample name: " + sample + "<br /><br />\n"
+        starter_div = """
+        <div id = "center">
+            <div id = "info-div-center">
+                <div id = "info-text">
+        """
+        f.write(starter_div)
+        line_sample = "Sample name: " + sample + "<br> \
+            <br>\n"
         f.write(line_sample)
-        cummulative_report = cummulative_report + line_sample
+        cummulative_report = cummulative_report + starter_div + line_sample
 
-        line_species = "Species: " + "<i>" + str(species) + "</i>" + "<br /><br />\n"
+        line_species = "Species: " + "<i>" + str(species) + "</i>" + "<br> \
+            <br>\n"
         f.write(line_species)
-        cummulative_report = cummulative_report + species_report + "<br />\n"
+        cummulative_report = cummulative_report + species_report + "<br>\n"
 
         df_annot = pd.read_csv(tab_annot, sep="\t", header=0)
         
         df_resistance = df_annot[df_annot.Resistance.notnull()]
-        df_resistance_F = df_resistance[['POS', 'ALT', 'Annotation', 'Gene_ID', 'Gene_Name', 'HGVS.c', 'HGVS.p', 'Resistance']]
-        df_resistance_F.columns = ['Position', 'Alt. base', 'Change', 'Gene ID', 'Gene Name', 'Codon change','AA change', 'Resistance']
+        df_resistance_F = df_resistance[['POS', 'ALT', 'AF', 'Annotation', 'Gene_ID', 'Gene_Name', 'HGVS.c', 'HGVS.p', 'Resistance']]
+        df_resistance_F.columns = ['Position', 'Alt. base', 'AF', 'Change', 'Gene ID', 'Gene Name', 'Codon change','AA change', 'Resistance']
         list_resistance = df_annot['Resistance'][df_annot.Resistance.notnull()].tolist()
 
 
@@ -542,17 +613,21 @@ def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis
                     if str(list_lineage[sublineage_n]).startswith(str(list_lineage[sublineage_n + 1])):
                         asterix = asterix + "*"
             final_lineage = str(list_lineage[0]) #+ " " + asterix
-            line_lineage = "This strain has lineage position(s): " + "<b>" + str(final_lineage) + "<br />\n" + "<br /><br />\n"
+            line_lineage = "This strain has lineage position(s): " + "<b>" + str(final_lineage) + "</b>" + "<br>\n \
+                <br>\n"
             f.write(line_lineage)
             cummulative_report = cummulative_report + line_lineage
         else:
-            line_lineage = "No lineage positions were found<br /><br />\n"
+            line_lineage = "No lineage positions were found<br> \
+                <br>\n"
             f.write(line_lineage)
             cummulative_report = cummulative_report + line_lineage
         
         #Output Resistance info
         if len(list_resistance) > 0:
-            line_res_1 = "This strain has " + str(len(list_resistance)) + " resistance position(s):<br />\n"
+            line_res_1 = "This strain has " + str(len(list_resistance)) + " resistance position(s):<br>\n \
+                </div> \
+                    </div>"
             f.write(line_res_1)
             cummulative_report = cummulative_report + line_res_1
             """
@@ -591,10 +666,10 @@ def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis
                                                 ]
             f.write(tabulate(final_res_table_F, headers='keys', tablefmt='html', showindex=False))
             if len(additional_resistance) > 0:
-                f.write("<br /><br />")
-                f.write("Found other putative resistances:<br />")
+                f.write("<br><br>")
+                f.write("Found other putative resistances:<br>")
                 f.write(tabulate(df_resistance_F, headers='keys', tablefmt='html', showindex=False))
-                line_other_res = ("<br />").join(additional_resistance)
+                line_other_res = ("<br>").join(additional_resistance)
                 f.write(line_other_res)
             
             """
@@ -603,13 +678,17 @@ def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis
             cummulative_report = cummulative_report + table_res + "\n"
 
         else:
-            f.write("No Resistance positions were found<br />")
-            cummulative_report = cummulative_report + "No Resistance positions were found<br />\n"
+            f.write("No Resistance positions were found<br> \
+                </div> \
+                    </div>")
+            cummulative_report = cummulative_report + "No Resistance positions were found<br>\n"
 
-        f.write("\n<br />\n \
-            <p>Este informe debe ser utilizado exclusivamente con fines de investigación. No utilizar ningún dato con fines asistenciales.</p>\n \
-            <p>Los asteriscos (*) al final del campo 'Resistance' hacen referencia a posiciones de alta confianza.</p>\n \
-            <br />\n")
+        f.write("\n<br>\n \
+            <footer> \
+                <p>Este informe debe ser utilizado exclusivamente con fines de investigación. No utilizar ningún dato con fines asistenciales.</p>\n \
+                <p>Los asteriscos (*) al final del campo 'Resistance' hacen referencia a posiciones de alta confianza.</p>\n \
+                <br>\n \
+            </footer>\n")
 
     return cummulative_report
 

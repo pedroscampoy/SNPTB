@@ -392,7 +392,7 @@ for r1_file, r2_file in zip(r1, r2):
             print(YELLOW + DIM + output_bqsr_file + " EXIST\nOmmiting Recalibration for sample " + sample + END_FORMATTING)
         else:
             print(GREEN + "Recalibration in sample " + sample + END_FORMATTING)
-            recalibrate_bam(args, tb=True)
+            recalibrate_bam(args)
 
         #HAPLOTYPE CALL 1/2 FOR HARD FILTERING AND RECALIBRATION
         #######################################################
@@ -530,7 +530,7 @@ for root, _, files in os.walk(out_vcf_dir):
                     print(YELLOW + DIM + output_annot_file + " EXIST\nOmmiting Annotation for sample " + sample + END_FORMATTING)
                 else:
                     print(GREEN + "Annotating snps in sample " + sample + END_FORMATTING)
-                    replace_reference(filename, "MTB_anc", "Chromosome", output_path)
+                    replace_reference(filename, output_path)
                     snpeff_annotation(args, output_path, database="Mycobacterium_tuberculosis_h37rv")
                     vcf_path = (".").join(output_path.split(".")[:-1])
                     annot_vcf = vcf_path + ".annot"
