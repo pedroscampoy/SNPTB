@@ -480,11 +480,11 @@ css_report = """
         border: 1px solid black;
         border-radius: 5px;
         padding: auto;
-        margin-left: 25%;
-        margin-right: 25%;
-        max-width: 3500px;
-        min-width: 600px;
-            }
+        margin: auto;
+        max-width: 1000px;
+        min-width: 500px;
+        height: auto;
+    }
 
     #center{
         background-color: white;
@@ -493,7 +493,6 @@ css_report = """
         display: block;
         text-align: center;
         height: 100%;
-
     }
 
     #info-div-center{

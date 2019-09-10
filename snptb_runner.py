@@ -532,8 +532,10 @@ for root, _, files in os.walk(out_vcf_dir):
                     print(GREEN + "Annotating snps in sample " + sample + END_FORMATTING)
                     replace_reference(filename, output_path)
                     snpeff_annotation(args, output_path, database="Mycobacterium_tuberculosis_h37rv")
+                    #Handle output vcf file from SnpEff annotation
                     vcf_path = (".").join(output_path.split(".")[:-1])
                     annot_vcf = vcf_path + ".annot"
+                    #This function add SPECIFIC anotation
                     final_annotation(annot_vcf)
 
 
