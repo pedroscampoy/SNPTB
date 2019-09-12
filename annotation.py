@@ -109,8 +109,9 @@ def annotate_bed_s(vcf_annot, *bed_files):
     """
     More on list comprehension: https://stackoverflow.com/questions/3371269/call-int-function-on-every-list-element
     """
+    print(bed_files)
     #bed_files = [ os.path.abspath(x) for x in bed_files ]
-    bed_files = list(map(os.path.abspath, bed_files)) #get full path for all files
+    #bed_files = list(map(os.path.abspath, bed_files)) #get full path for all files
     variable_list = [ x.split("/")[-1].split(".")[0] for x in bed_files ] #extract file name and use it as header
     
     for variable_name, bed_file in zip(variable_list,bed_files):
@@ -443,7 +444,6 @@ def final_annotation(vcf_file_annot, *bed_files):
 
     #Add resistance info
     add_resistance_snp(df_vcf)
-
 
     #Retrieve only annotation fields
     #df_vcf_annot = df_vcf[['#CHROM', 'POS', 'ID', 'REF', 'ALT','Annotation',

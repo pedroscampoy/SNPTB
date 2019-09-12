@@ -60,11 +60,12 @@ def get_arguments():
     input_group.add_argument('-r', '--reference', metavar="reference", type=str, required=True, help='REQUIRED. File to map against')
     input_group.add_argument('-s', '--sample', metavar="sample", type=str, required=False, help='Sample to identify further files')
     input_group.add_argument('-S', '--sample_list', type=str, required=False, help='Sample names to analyse only in the file supplied')
+    input_group.add_argument('-a', '--annot', type=str, required=False, action='append', help='bed file to annotate')
     
     output_group = parser.add_argument_group('Output', 'Required parameter to output results')
 
     output_group.add_argument('-o', '--output', type=str, required=True, help='REQUIRED. Output directory to extract all results')
-    
+    output_group.add_argument('--TB', required=False, action='store_true', help='Specific parameters for Mycobacterium tuberculosis')
 
     trimming_group = parser.add_argument_group('Trimming parameters', 'parameters for diferent triming conditions')
 
@@ -79,7 +80,7 @@ def get_arguments():
 
     vcf_group = parser.add_argument_group('VCF filters', 'parameters for variant filtering')
 
-    vcf_group.add_argument('-b', '--bed_remove', type=str, required=False, default="TB", help='BED file with position ranges to filter from final vcf')
+    vcf_group.add_argument('-b', '--bed_remove', type=str, required=False, default=False, help='BED file with position ranges to filter from final vcf')
     vcf_group.add_argument('-m', '--maxnocallfr', type=str, required=False, default=0.1, help='maximun proportion of samples with non genotyped alleles')
 
     params_group = parser.add_argument_group('Parameters', 'parameters for diferent stringent conditions')
@@ -98,8 +99,8 @@ def get_arguments():
 
 args = get_arguments()
 
+print("ARGUMENTS\n")
 print(args)
-
 
 #Obtain all R1 and R2 from folder
 r1, r2 = extract_read_list(args.input_dir)
@@ -169,7 +170,6 @@ for r1_file, r2_file in zip(r1, r2):
 
             ##############START PIPELINE#####################
             #################################################
-
 
             #INPUT ARGUMENTS
             ################
@@ -536,8 +536,12 @@ for root, _, files in os.walk(out_vcf_dir):
                     vcf_path = (".").join(output_path.split(".")[:-1])
                     annot_vcf = vcf_path + ".annot"
                     #This function add SPECIFIC anotation
-                    final_annotation(annot_vcf)
-
+                    if args.annot:
+                        #annoation_files = ", ".join(args.annot)
+                        #print(annoation_files)
+                        final_annotation(annot_vcf, *args.annot)
+                    else:
+                        final_annotation(annot_vcf)
 
 
 print("\n\n" + BLUE + BOLD + "STARTING REPORT IN GROUP: " + group_name + END_FORMATTING + "\n")
