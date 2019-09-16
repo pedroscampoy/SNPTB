@@ -538,8 +538,8 @@ css_report = """
         text-align: left;
     }
     @page {
-    size: A4;
-    margin: 0;
+        size: A4;
+        margin: 0;
     }
 
     @media print {
@@ -548,6 +548,20 @@ css_report = """
         height: 297mm;
         margin: 0px;
     }}
+
+    #info-text::before{
+        content: "";
+        display: inline-block;
+        height: 5px; 
+        width: 20px;
+        padding: 0.5px; 
+        background-color: teal; 
+        border-radius: 150px;  
+        transform: rotate(200deg) skew(0deg); 
+        -webkit-transform: rotate(200deg) skew(0deg); 
+        border: 3px dashed #D8A3CA;
+        margin-right: 0.5em;
+        }
 
     </style>
 

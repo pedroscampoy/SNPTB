@@ -404,6 +404,47 @@ def filter_vcf_list(raw_vcf, list_pos, name_out):
                     if position not in list_pos:
                         f1.write(line)
 
+def import_VCF42_cohort_pandas(vcf_file, sep='\t'):
+    """
+    Script to read vcf 4.2 cohort/join called vcf handling header lines
+    """
+    header_lines = 0
+    with open(vcf_file) as f:
+        first_line = f.readline().strip()
+        next_line = f.readline().strip()
+        while next_line.startswith("##"):
+            header_lines = header_lines + 1
+            #print(next_line)
+            next_line = f.readline()
+    
+    if first_line.endswith('VCFv4.2'):
+        dataframe = pd.read_csv(vcf_file, sep=sep, skiprows=[header_lines], header=header_lines)
+    else:
+        print("This vcf file is not v4.2")
+        sys.exit(1)
+
+    return dataframe
+
+def identify_heterozygous(vcf_file, nocall_fr=0.2):
+    
+    df = import_VCF42_cohort_pandas(vcf_file)
+    
+    highly_hetz_positions = []
+    
+    sample_list = df.columns[9:].tolist()
+    #remove positions which haven't been enotyped in 0.2% or more samples
+    for index, data_row in df.iloc[:,9:].iterrows():
+        if any(bool(re.search(r'0[|\/][1-9]', x)) for x in data_row):
+            #print(data_row.tolist())
+            is_heterozygous = [bool(re.search(r'0[|\/][1-9]', x)) for x in data_row] #True False array
+            #is_heterozygous = [x.startswith("0/1") for x in data_row] #True False array
+            is_heterozygous_count = sum(is_heterozygous) #True = 1, False = 0
+            #Drop positions
+            if is_heterozygous_count / len(is_heterozygous) > nocall_fr:
+                highly_hetz_positions.append(df.loc[index, 'POS'])
+                #print(df.loc[index, 'POS'], is_heterozygous_count, len(is_heterozygous))
+        
+    return highly_hetz_positions
 
 def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_limit=8, dp_AF=10, AF_dp=0.80, bed_to_filter=False, var_type="SNP"):
     """
