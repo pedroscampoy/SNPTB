@@ -159,7 +159,7 @@ if ("NC_000962.3" in args.reference) or ("h37rv" in args.reference.lower()) or (
         args.annot[0:0] = [is_esential_bed, is_polymorphic, product_bed, drug_related_bed]
 
 if args.bed_remove == "TB":
-    bed_polymorphism = os.path.join(annotation_dir, "MTB_repeats_annot.bed")
+    bed_polymorphism = os.path.join(annotation_dir, "is_polymorphic.bed")
 
 #Output related
 out_trim_dir = os.path.join(args.output, "Trimmed")

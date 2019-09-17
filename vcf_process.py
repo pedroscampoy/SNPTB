@@ -9,6 +9,7 @@ import re
 import subprocess
 from misc import check_file_exists, obtain_output_dir, check_create_dir, get_picard_path, execute_subprocess, check_remove_file
 
+
 def calculate_ALT_AD(row):
     split_AD = row.AD.split(",")[1:]
     split_AD = [int(x) for x in split_AD]
@@ -385,6 +386,64 @@ def annotate_bed(dict_position, position):
         return False
 
 
+def bed_to_df(bed_file):
+    """
+    Import bed file separated by tabs into a pandas dataframe
+    -Handle header line
+    -Handle with and without description (If there is no description adds true or false to annotated df)
+    """
+    header_lines = 0
+    #Handle likely header by checking colums 2 and 3 as numbers
+    with open(bed_file, 'r') as f:
+        next_line = f.readline().strip()
+        line_split = next_line.split(None) #This split by any blank character
+        start = line_split[1]
+        end = line_split[2]
+        while not start.isdigit() and not end.isdigit():
+            header_lines = header_lines + 1
+            next_line = f.readline().strip()
+            line_split = next_line.split(None) #This split by any blank character
+            start = line_split[1]
+            end = line_split[2]
+
+    if header_lines == 0:
+        dataframe = pd.read_csv(bed_file, sep="\t", header=None) #delim_whitespace=True
+    else:
+        dataframe = pd.read_csv(bed_file, sep="\t", skiprows=header_lines, header=None) #delim_whitespace=True
+    if dataframe.shape[1] == 3:
+        dataframe['description'] = True
+        dataframe.columns = ["#CHROM", "start", "end", "description"]
+    else:
+        dataframe.columns = ["#CHROM", "start", "end", "description"]
+        
+    return dataframe
+
+def add_bed_info(bed_df, position):
+    """
+    Identify a position within a range
+    credits: https://stackoverflow.com/questions/6053974/python-efficiently-check-if-integer-is-within-many-ranges
+    """
+    #dict_position = bed_to_dict(bed_file)
+    if any(start <= position <= end for (start, end) in zip(bed_df.start.values.tolist(), bed_df.end.values.tolist())):
+        description_out = bed_df.description[(bed_df.start <= position) & (bed_df.end >= position)].values[0]
+        return description_out
+    else:
+        return False
+
+def annotate_bed_s(vcf_annot, *bed_files):
+    """
+    More on list comprehension: https://stackoverflow.com/questions/3371269/call-int-function-on-every-list-element
+    """
+    print("ANNOTATING BED(S): ", bed_files)
+    #bed_files = [ os.path.abspath(x) for x in bed_files ]
+    #bed_files = list(map(os.path.abspath, bed_files)) #get full path for all files
+    variable_list = [ x.split("/")[-1].split(".")[0] for x in bed_files ] #extract file name and use it as header
+    
+    for variable_name, bed_file in zip(variable_list,bed_files):
+        bed_annot_df = bed_to_df(bed_file)
+        vcf_annot[variable_name] = vcf_annot['POS'].apply(lambda x: add_bed_info(bed_annot_df,x))
+
+
 def filter_vcf_list(raw_vcf, list_pos, name_out):
     """
     Remove positions supplies in a list and creates a different vcf with the name supplied
@@ -430,9 +489,8 @@ def identify_heterozygous(vcf_file, nocall_fr=0.2):
     df = import_VCF42_cohort_pandas(vcf_file)
     
     highly_hetz_positions = []
-    
-    sample_list = df.columns[9:].tolist()
-    #remove positions which haven't been enotyped in 0.2% or more samples
+
+    #locate heterozygous positions in 0.2% or more samples
     for index, data_row in df.iloc[:,9:].iterrows():
         if any(bool(re.search(r'0[|\/][1-9]', x)) for x in data_row):
             #print(data_row.tolist())
@@ -446,7 +504,7 @@ def identify_heterozygous(vcf_file, nocall_fr=0.2):
         
     return highly_hetz_positions
 
-def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_limit=8, dp_AF=10, AF_dp=0.80, bed_to_filter=False, var_type="SNP"):
+def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_limit=8, dp_AF=10, AF_dp=0.80, highly_polimorphic=False, bed_to_filter=False, var_type="SNP"):
     """
     Apply custom filter to individual vcf based on:
     AF
@@ -469,11 +527,14 @@ def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_l
     check_create_dir(table_outputt_dir)
 
     #Add polymorphic regions info (Phage, Transposon or PE/PPE regions for TB)
-    if bed_to_filter == False:
+    """if bed_to_filter == False:
         df_vcf['is_polymorphic'] = False
     else:
         dict_position = bed_to_dict(bed_to_filter)
         df_vcf['is_polymorphic'] = df_vcf['POS'].apply(lambda x: annotate_bed(dict_position,x))
+    """
+
+    annotate_bed_s(df_vcf, bed_to_filter)
 
     #Add info of nearby positions
     add_snp_distance(df_vcf)
@@ -518,6 +579,9 @@ def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_l
                                 ((df_vcf.gt0 == 0) & (df_vcf.window_30 >= 3)) |
                                 ((df_vcf.dp < dp_AF) & (df_vcf.AF < AF_dp)) |
                                 (df_vcf.is_polymorphic == True))].tolist()
-    
+
+    if highly_polimorphic != False:
+        list_positions_to_filter.extend(highly_polimorphic)
+
     final_vcf_name = tab_name + extend_final
     filter_vcf_list(vcf_path, list_positions_to_filter, final_vcf_name)

@@ -9,7 +9,7 @@ import re
 import subprocess
 from tabulate import tabulate
 from misc import get_snpeff_path, check_create_dir
-from vcf_process import calculate_ALT_AD, obtain_output_dir
+from vcf_process import bed_to_df,bed_to_df, add_bed_info, annotate_bed_s, obtain_output_dir, calculate_ALT_AD
 
 ##Import files containing annotation info and convert them to dictionary
 ##TO DO: Compensatory mutations
@@ -60,63 +60,6 @@ with open (high_confidence_file, 'r') as f:
     for line in f:
         dict_high_conf[int(line.split(":")[0])] = line.split(":")[1].strip().split(",")
 
-
-def bed_to_df(bed_file):
-    """
-    Import bed file separated by tabs into a pandas dataframe
-    -Handle header line
-    -Handle with and without description (If there is no description adds true or false to annotated df)
-    """
-    header_lines = 0
-    #Handle likely header by checking colums 2 and 3 as numbers
-    with open(bed_file, 'r') as f:
-        next_line = f.readline().strip()
-        line_split = next_line.split(None) #This split by any blank character
-        start = line_split[1]
-        end = line_split[2]
-        while not start.isdigit() and not end.isdigit():
-            header_lines = header_lines + 1
-            next_line = f.readline().strip()
-            line_split = next_line.split(None) #This split by any blank character
-            start = line_split[1]
-            end = line_split[2]
-
-    if header_lines == 0:
-        dataframe = pd.read_csv(bed_file, sep="\t", header=None) #delim_whitespace=True
-    else:
-        dataframe = pd.read_csv(bed_file, sep="\t", skiprows=header_lines, header=None) #delim_whitespace=True
-    if dataframe.shape[1] == 3:
-        dataframe['description'] = True
-        dataframe.columns = ["#CHROM", "start", "end", "description"]
-    else:
-        dataframe.columns = ["#CHROM", "start", "end", "description"]
-        
-    return dataframe
-
-def add_bed_info(bed_df, position):
-    """
-    Identify a position within a range
-    credits: https://stackoverflow.com/questions/6053974/python-efficiently-check-if-integer-is-within-many-ranges
-    """
-    #dict_position = bed_to_dict(bed_file)
-    if any(start <= position <= end for (start, end) in zip(bed_df.start.values.tolist(), bed_df.end.values.tolist())):
-        description_out = bed_df.description[(bed_df.start <= position) & (bed_df.end >= position)].values[0]
-        return description_out
-    else:
-        return False
-
-def annotate_bed_s(vcf_annot, *bed_files):
-    """
-    More on list comprehension: https://stackoverflow.com/questions/3371269/call-int-function-on-every-list-element
-    """
-    print(bed_files)
-    #bed_files = [ os.path.abspath(x) for x in bed_files ]
-    #bed_files = list(map(os.path.abspath, bed_files)) #get full path for all files
-    variable_list = [ x.split("/")[-1].split(".")[0] for x in bed_files ] #extract file name and use it as header
-    
-    for variable_name, bed_file in zip(variable_list,bed_files):
-        bed_annot_df = bed_to_df(bed_file)
-        vcf_annot[variable_name] = vcf_annot['POS'].apply(lambda x: add_bed_info(bed_annot_df,x))
 
 def extract_reference_vcf(input_vcf):
     """
