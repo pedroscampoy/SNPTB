@@ -325,3 +325,26 @@ def longest_common_suffix(list_of_strings):
     reversed_lcs = os.path.commonprefix(reversed_strings)
     lcs = reversed_lcs[::-1]
     return lcs
+
+def list_to_bed(input_list, output_dir, output_file_name, reference="CHROM"):
+    """
+    Turn a list into a bed file with start and end position having the same value
+    """
+    output_dir = os.path.abspath(output_dir)
+    
+    output_bed_file = output_file_name + ".bed"
+    
+    final_output_path = os.path.join(output_dir, output_bed_file)
+    
+    with open (final_output_path, 'w+') as f:
+        for position in input_list:
+            line = ("\t").join([reference, str(position), str(position)]) + "\n"
+            f.write(line)
+
+def count_lines(input_file):
+    with open(input_file, 'r') as f:
+        content = f.read()
+        content_list = content.split('\n')
+        while '' in content_list : content_list.remove('')
+        
+        return len(content_list)

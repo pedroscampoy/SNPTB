@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 import re
 import subprocess
-from misc import check_file_exists, obtain_output_dir, check_create_dir, get_picard_path, execute_subprocess, check_remove_file
+from misc import check_file_exists, obtain_output_dir, check_create_dir, get_picard_path, execute_subprocess, check_remove_file, list_to_bed, count_lines
 
 
 def calculate_ALT_AD(row):
@@ -484,7 +484,7 @@ def import_VCF42_cohort_pandas(vcf_file, sep='\t'):
 
     return dataframe
 
-def identify_heterozygous(vcf_file, nocall_fr=0.2):
+def identify_heterozygous(vcf_file, nocall_fr=0.5):
     
     df = import_VCF42_cohort_pandas(vcf_file)
     
@@ -504,7 +504,18 @@ def identify_heterozygous(vcf_file, nocall_fr=0.2):
         
     return highly_hetz_positions
 
-def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_limit=8, dp_AF=10, AF_dp=0.80, highly_polimorphic=False, bed_to_filter=False, var_type="SNP"):
+def highly_hetz_to_bed(cohort_vcf_file, output_file_name, reference="CHROM", nocall_fr=0.5):
+    """
+    Determine positions with heterozygous positions from a cohort vcf and
+    create a bed named highly_polimorphic.bed for further annotation
+    """
+    #Set output dir as input
+    output_dir = ("/").join(cohort_vcf_file.split("/")[:-1])
+    list_heterozygous = identify_heterozygous(cohort_vcf_file, nocall_fr)
+    list_to_bed(list_heterozygous, output_dir, output_file_name, reference)
+
+
+def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_limit=8, dp_AF=10, AF_dp=0.80, highly_hetz=False, bed_to_filter=False, var_type="SNP"):
     """
     Apply custom filter to individual vcf based on:
     AF
@@ -527,14 +538,14 @@ def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_l
     check_create_dir(table_outputt_dir)
 
     #Add polymorphic regions info (Phage, Transposon or PE/PPE regions for TB)
-    """if bed_to_filter == False:
+    if bed_to_filter == False:
         df_vcf['is_polymorphic'] = False
     else:
-        dict_position = bed_to_dict(bed_to_filter)
-        df_vcf['is_polymorphic'] = df_vcf['POS'].apply(lambda x: annotate_bed(dict_position,x))
-    """
-
-    annotate_bed_s(df_vcf, bed_to_filter)
+        annotate_bed_s(df_vcf, bed_to_filter)
+    
+    if highly_hetz != False:
+        annotate_bed_s(df_vcf, highly_hetz)
+    
 
     #Add info of nearby positions
     add_snp_distance(df_vcf)
@@ -579,9 +590,6 @@ def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_l
                                 ((df_vcf.gt0 == 0) & (df_vcf.window_30 >= 3)) |
                                 ((df_vcf.dp < dp_AF) & (df_vcf.AF < AF_dp)) |
                                 (df_vcf.is_polymorphic == True))].tolist()
-
-    if highly_polimorphic != False:
-        list_positions_to_filter.extend(highly_polimorphic)
 
     final_vcf_name = tab_name + extend_final
     filter_vcf_list(vcf_path, list_positions_to_filter, final_vcf_name)
