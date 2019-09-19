@@ -7,7 +7,8 @@ import pandas as pd
 import numpy as np
 import re
 import subprocess
-from misc import check_file_exists, obtain_output_dir, check_create_dir, get_picard_path, execute_subprocess, check_remove_file, list_to_bed, count_lines
+from misc import check_file_exists, obtain_output_dir, check_create_dir, get_picard_path, execute_subprocess, check_remove_file, \
+list_to_bed, count_lines
 
 
 def calculate_ALT_AD(row):
@@ -515,7 +516,67 @@ def highly_hetz_to_bed(cohort_vcf_file, output_file_name, reference="CHROM", noc
     list_to_bed(list_heterozygous, output_dir, output_file_name, reference)
 
 
-def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_limit=8, dp_AF=10, AF_dp=0.80, highly_hetz=False, bed_to_filter=False, var_type="SNP"):
+def coverage_to_list(input_file):
+    sample_name = input_file.split("/")[-1].split(".")[0]
+    coverage_list = []
+    with open(input_file, 'r') as f:
+            content = f.read()
+            content_list = content.split('\n')
+            while '' in content_list : content_list.remove('')
+    coverage_list = [x.split("\t")[2] for x in content_list]
+
+    return (sample_name, coverage_list)
+
+
+def identify_uncovered(cov_folder, min_coverage=2, nocall_fr=0.5):
+    cov_folder = os.path.abspath(cov_folder)
+    len_files = set()
+    #Create Position column and asign value
+    cov_df = pd.DataFrame(columns=['Position'])
+    
+    for root, _, files in os.walk(cov_folder):
+        for name in files:
+            if name.endswith(".cov"):
+                filename = os.path.join(root, name)
+                #Add number of lines of file and compare to previous file
+                len_files.add(count_lines(filename))
+                #import to dataframe if they have the same positios(same reference)
+                if len(len_files) == 1:
+                    sample_name, coverage_list = coverage_to_list(filename)
+                    cov_df[sample_name] = coverage_list
+                else:
+                    print("This file has different reference, please, check " + filename)
+                    sys.exit(1)
+                    
+    cov_df['Position'] = cov_df.index + 1
+    cov_df = cov_df.astype(int)
+    
+    #Determine low covered positions in dataframe
+    poorly_covered = []
+    #Filter positions with values lower than min_cov, dro rows with all false and extract the indet to iterate
+    list_any_uncovered = cov_df[cov_df < min_coverage].dropna(how='all').index.tolist()
+
+    for index in list_any_uncovered:
+        if any((int(x) < min_coverage) for x in cov_df.iloc[index,1:]):
+            data_row = cov_df.iloc[index,1:]
+            is_uncovered = [(int(x) < min_coverage) for x in data_row] #True False array
+            is_uncovered_count = sum(is_uncovered) #True = 1, False = 0
+            if is_uncovered_count / len(is_uncovered) > nocall_fr:
+                poorly_covered.append(cov_df.loc[index, 'Position'])
+    
+    return poorly_covered
+
+def poorly_covered_to_bed(coverage_folder, output_file_name, reference="CHROM", min_coverage=2, nocall_fr=0.5):
+    """
+    Determine shared low covered positions from their bedtools coverage files
+    create a bed named poorly_covered.bed for further annotation
+    """
+    #Set output dir as input
+    list_uncovered = identify_uncovered(coverage_folder, min_coverage=2, nocall_fr=nocall_fr)
+    list_to_bed(list_uncovered, coverage_folder, output_file_name, reference)
+
+def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_limit=8, dp_AF=10, AF_dp=0.80, 
+    highly_hetz=False, poorly_covered=False, bed_to_filter=False, var_type="SNP"):
     """
     Apply custom filter to individual vcf based on:
     AF
@@ -545,6 +606,9 @@ def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_l
     
     if highly_hetz != False:
         annotate_bed_s(df_vcf, highly_hetz)
+    
+    if poorly_covered != False:
+        annotate_bed_s(df_vcf, poorly_covered)
     
 
     #Add info of nearby positions

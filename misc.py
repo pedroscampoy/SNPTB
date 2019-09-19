@@ -346,5 +346,4 @@ def count_lines(input_file):
         content = f.read()
         content_list = content.split('\n')
         while '' in content_list : content_list.remove('')
-        
-        return len(content_list)
+    return len(content_list)

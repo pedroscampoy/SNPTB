@@ -25,7 +25,6 @@ resistance_file_v2 = os.path.join(annotation_dir_res, "dict_position_resistance_
 resistance_file_v3 = os.path.join(annotation_dir_res, "dict_position_resistance_v2.txt") #Crated on 190718
 high_confidence_file = os.path.join(annotation_dir_res, "dict_position_resistance_high_conf.txt")
 
-
 dict_essential = {}
 dict_product = {}
 dict_res_v1 = {}
