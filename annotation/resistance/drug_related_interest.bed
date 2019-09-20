@@ -1,4 +1,4 @@
-#CHROM	start	stop	gene_res
+CHROM	start	stop	gene_res
 CHROM	4998	5239	gyrB upstream (moxifloxacin, gatifloxacin, ofloxacin, levofloxacin)
 CHROM	5240	7267	gyrB (moxifloxacin, gatifloxacin, ofloxacin, levofloxacin)
 CHROM	7268	7301	gyrA upstream (moxifloxacin, gatifloxacin, ofloxacin, levofloxacin)
@@ -157,8 +157,10 @@ CHROM	3877464	3878507	rpoA (compensates for rpoB mutations)
 CHROM	3878508	3878658	rpoA upstream (compensates for rpoB mutations)
 CHROM	3986733	3986843	ddn upstream (delamanid, PA-824)
 CHROM	3986844	3987299	ddn (delamanid, PA-824)
-CHROM	4007331	4008182	nat (isoniazid)
-CHROM	4008183	4008433	nat upstream (isoniazid)
+CHROM	4007331	4008182	"nat (isoniazid
+PAS)"
+CHROM	4008183	4008433	"nat upstream (isoniazid
+PAS)"
 CHROM	4038158	4040704	clpC1 (pyrazinamide)
 CHROM	4040705	4040878	clpC1 upstream (pyrazinamide)
 CHROM	4043862	4044281	panD (pyrazinamide)

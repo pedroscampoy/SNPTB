@@ -147,7 +147,7 @@ def execute_subprocess(cmd):
     try:
         command = subprocess.run(cmd , stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if command.returncode == 0:
-            print(GREEN + "Program %s successfully executed" % prog + END_FORMATTING)
+            print(GREEN + DIM + "Program %s successfully executed" % prog + END_FORMATTING)
         else:
             print (RED + BOLD + "Command %s FAILED\n" % prog + END_FORMATTING
                 + BOLD + "WITH PARAMETERS: " + END_FORMATTING + " ".join(param) + "\n"

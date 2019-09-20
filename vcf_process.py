@@ -582,8 +582,10 @@ def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_l
     AF
     snp distance --> Replaced by window_10
     QD
-    Window_10
+    Window_10, 20 and 30
     gatk asigned genotype for diploid calls
+    Highly heterozygous positions 
+    Poorly covered positions
     """
     df_vcf = import_VCF42_to_pandas(vcf_file)
 
@@ -631,11 +633,12 @@ def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_l
         print("Wrong variant type to filter, use SNP/INDEL/ALL")
         sys.exit(1)
 
-    #output all raw info into a file
+    #output all raw info into a file in 'Table' folder
     new_out_file = tab_name + extend_raw
     output_raw_tab = os.path.join(table_outputt_dir, new_out_file)
     df_vcf.to_csv(output_raw_tab, sep='\t', index=False)
     
+    #Apply all filters and extract positions as table to filer the final vcf
     list_positions_to_filter = df_vcf['POS'][((df_vcf.AF < AF) | 
                                 (df_vcf.snp_left_distance <= distance)|
                                 (df_vcf.snp_right_distance <= distance)|
@@ -653,6 +656,8 @@ def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_l
                                 ((df_vcf.gt0 == 0) & (df_vcf.window_20 >= 2)) |
                                 ((df_vcf.gt0 == 0) & (df_vcf.window_30 >= 3)) |
                                 ((df_vcf.dp < dp_AF) & (df_vcf.AF < AF_dp)) |
+                                (df_vcf.highly_hetz == True) |
+                                (df_vcf.poorly_covered == True) |
                                 (df_vcf.is_polymorphic == True))].tolist()
 
     final_vcf_name = tab_name + extend_final
