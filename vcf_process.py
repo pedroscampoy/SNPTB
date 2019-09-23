@@ -515,6 +515,35 @@ def highly_hetz_to_bed(cohort_vcf_file, output_file_name, reference="CHROM", noc
     list_heterozygous = identify_heterozygous(cohort_vcf_file, nocall_fr)
     list_to_bed(list_heterozygous, output_dir, output_file_name, reference)
 
+def identify_non_genotyped(vcf_file, nocall_fr=0.5):
+    
+    df = import_VCF42_cohort_pandas(vcf_file)
+    
+    non_genotyped_positions = []
+    
+    #sample_list = df.columns[9:].tolist()
+    #remove positions which haven't been enotyped in 0.2% or more samples
+    for index, data_row in df.iloc[:,9:].iterrows():
+        if any(x.startswith("./.") for x in data_row):
+            #print(data_row.tolist())
+            non_genotyped = [x.startswith("./.") for x in data_row] #True False array
+            non_genotyped_count = sum(non_genotyped) #True = 1, False = 0
+            if non_genotyped_count / len(non_genotyped) > nocall_fr:
+                non_genotyped_positions.append(df.loc[index, 'POS'])
+                #print(df.loc[index, 'POS'], is_heterozygous_count, len(is_heterozygous))
+        
+    return non_genotyped_positions
+
+def non_genotyped_to_bed(cohort_vcf_file, output_file_name, reference="CHROM", nocall_fr=0.5):
+    """
+    Determine positions with non genotyped positions from a cohort vcf and
+    create a bed named non_genotyped.bed for further annotation
+    """
+    #Set output dir as input
+    output_dir = ("/").join(cohort_vcf_file.split("/")[:-1])
+    list_non_genotyped = identify_non_genotyped(cohort_vcf_file, nocall_fr)
+    list_to_bed(list_non_genotyped, output_dir, output_file_name, reference)
+
 
 def coverage_to_list(input_file):
     sample_name = input_file.split("/")[-1].split(".")[0]
@@ -576,7 +605,7 @@ def poorly_covered_to_bed(coverage_folder, output_file_name, reference="CHROM", 
     list_to_bed(list_uncovered, coverage_folder, output_file_name, reference)
 
 def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_limit=8, dp_AF=10, AF_dp=0.80, 
-    highly_hetz=False, poorly_covered=False, bed_to_filter=False, var_type="SNP"):
+    highly_hetz=False, non_genotyped=False, poorly_covered=False, bed_to_filter=False, var_type="SNP"):
     """
     Apply custom filter to individual vcf based on:
     AF
@@ -609,6 +638,9 @@ def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_l
     if highly_hetz != False:
         annotate_bed_s(df_vcf, highly_hetz)
     
+    if non_genotyped != False:
+        annotate_bed_s(df_vcf, non_genotyped)
+
     if poorly_covered != False:
         annotate_bed_s(df_vcf, poorly_covered)
     
@@ -658,6 +690,7 @@ def vcf_consensus_filter(vcf_file, distance=1, AF=0.75, QD=15, window_10=3, dp_l
                                 ((df_vcf.dp < dp_AF) & (df_vcf.AF < AF_dp)) |
                                 (df_vcf.highly_hetz == True) |
                                 (df_vcf.poorly_covered == True) |
+                                (df_vcf.non_genotyped == True) |
                                 (df_vcf.is_polymorphic == True))].tolist()
 
     final_vcf_name = tab_name + extend_final

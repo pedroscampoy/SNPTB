@@ -13,7 +13,7 @@ from pe_mapper import bwa_mapping, sam_to_index_bam
 from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplotype_caller, call_variants, \
     select_variants, hard_filter, combine_gvcf, select_pass, select_pass_variants, recalibrate_bam, \
     samples_from_vcf,split_vcf_saples, combine_vcf
-from vcf_process import vcf_consensus_filter, highly_hetz_to_bed, poorly_covered_to_bed
+from vcf_process import vcf_consensus_filter, highly_hetz_to_bed, poorly_covered_to_bed, non_genotyped_to_bed
 from annotation import replace_reference, snpeff_annotation, final_annotation, create_report, css_report
 from species_determination import mash_screen, extract_species_from_screen
 
@@ -173,6 +173,7 @@ out_annot_dir = os.path.join(args.output, "Annotation")
 out_species_dir = os.path.join(args.output, "Species")
 
 highly_hetz_bed = os.path.join(out_vcf_dir, "highly_hetz.bed")
+non_genotyped_bed = os.path.join(out_vcf_dir, "non_genotyped.bed")
 poorly_covered_bed = os.path.join(out_cov_dir, "poorly_covered.bed")
 
 for r1_file, r2_file in zip(r1, r2):
@@ -522,6 +523,7 @@ else:
 ###########################################################################
 ###########################################################################
 highly_hetz_to_bed(output_vcfhfcombined_file, "highly_hetz", reference="CHROM", nocall_fr=0.5)
+non_genotyped_to_bed(output_vcfhfcombined_file, "non_genotyped", reference="CHROM", nocall_fr=0.5)
 
 for r1_file, r2_file in zip(r1, r2):
     sample = extract_sample(r1_file, r2_file)
@@ -544,7 +546,11 @@ for r1_file, r2_file in zip(r1, r2):
         else:
             print(GREEN + "Final filter in sample " + sample + END_FORMATTING)
             vcf_consensus_filter(in_final_vcf, distance=1, AF=0.75, QD=15, window_10=3, dp_limit=8, dp_AF=10, AF_dp=0.80,
-             highly_hetz=highly_hetz_bed, poorly_covered=poorly_covered_bed, bed_to_filter=bed_polymorphism, var_type="SNP")
+             highly_hetz=highly_hetz_bed, 
+             non_genotyped=non_genotyped_bed, 
+             poorly_covered=poorly_covered_bed, 
+             bed_to_filter=bed_polymorphism, 
+             var_type="SNP")
 
 
 print("\n\n" + MAGENTA + BOLD + "VARIANT CALL FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")
