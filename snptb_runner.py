@@ -1,11 +1,16 @@
 #!/usr/bin/env python
 
+# Standard library imports
 import os
 import sys
 import re
+
+# Third party imports
 import argparse
 #import argcomplete
 import subprocess
+
+# Local application imports
 from misc import check_file_exists, extract_sample, obtain_output_dir, check_create_dir, execute_subprocess, \
     extract_read_list, file_to_list, get_coverage, obtain_group_cov_stats, remove_low_covered, clean_unwanted_files
 from bbduk_trimmer import bbduk_trimming
@@ -591,6 +596,9 @@ if args.tuberculosis == True:
     all_report_file = os.path.join(out_annot_dir, report_name)
 
     with open(all_report_file, 'w+') as fa:
+        #Include common css for all reports and change height to adapt to bigger sizes
+        css_report = css_report.replace("height: 100%;", "height: auto;")
+        fa.write(css_report)
         for r1_file, r2_file in zip(r1, r2):
             args.r1_file = r1_file
             args.r2_file = r2_file
@@ -598,8 +606,6 @@ if args.tuberculosis == True:
             if sample in sample_list_F:
                 out_mash_name = sample + ".screen.tab"
                 output_mash_file = os.path.join(out_species_dir, out_mash_name)
-
-                fa.write(css_report)
 
                 for root, _, files in os.walk(out_annot_dir):
                     for name in files:

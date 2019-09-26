@@ -276,7 +276,7 @@ def add_lineage_Coll(vcf_df):
         '1799921' : ['A', '5'],
         '1816587' : ['G', '6'],
         '1137518' : ['A', '7'],
-        '2831482' : ['G', 'BOV'],
+        '2831482' : ['G', 'MTB_BOVIS'],
         '1882180' : ['T', 'BOV_AFRI']
                 }
     list_lineage = []
@@ -425,7 +425,6 @@ css_report = """
         margin: auto;
         max-width: 1000px;
         min-width: 500px;
-        height: auto;
     }
 
     #center{
@@ -474,6 +473,11 @@ css_report = """
     tr:nth-child(even) {background-color: #cecccc;}
     tr:hover {background-color:#7c7b7b;}
 
+    footer{
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+    }
     footer p{
         padding-left: 10px;
         font-size: 0.5em;
@@ -636,14 +640,18 @@ def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis
             f.write("No Resistance positions were found<br> \
                 </div> \
                     </div>")
-            cummulative_report = cummulative_report + "No Resistance positions were found<br>\n"
+            cummulative_report = cummulative_report + "No Resistance positions were found<br>\n \
+                </div> \
+            </div> \
+            </div>"
 
         f.write("\n<br>\n \
             <footer> \
                 <p>Este informe debe ser utilizado exclusivamente con fines de investigación. No utilizar ningún dato con fines asistenciales.</p>\n \
                 <p>Los asteriscos (*) al final del campo 'Resistance' hacen referencia a posiciones de alta confianza.</p>\n \
                 <br>\n \
-            </footer>\n")
+            </footer>\n \
+            </div>")
 
     return cummulative_report
 
