@@ -282,15 +282,42 @@ def obtain_group_cov_stats(directory, low_cov_threshold=20, unmmaped_threshold=2
 
     return saples_low_covered
 
+def edit_sample_list(file_list, sample_list):
+    with open(file_list, 'r') as f:
+        content = f.read()
+        content_list = content.split('\n')
+        while '' in content_list : content_list.remove('')
+        
+    with open (file_list, 'w+') as fout:
+            for line in content_list:
+                if line not in sample_list:
+                    fout.write(line + "\n")
+
 def remove_low_covered(output_dir, sample_list):
     output_dir = os.path.abspath(output_dir)
+    group = output_dir.split("/")[-1]
+    uncovered_dir = os.path.join(output_dir, "Uncovered")
+    check_create_dir(uncovered_dir)
+    sample_list_file = os.path.join(output_dir, "sample_list.txt")
     for root, _, files in os.walk(output_dir):
+        #Remove recall gvcf to avoid using them to recalibrate
         if root.endswith('GVCF_recal'):
             for name in files:
                 filename = os.path.join(root, name)
                 for sample_low in sample_list:
                     if name.startswith(sample_low):
                         os.remove(filename)
+        #Place low covered samples in a specific folder to analize them with different parameters
+        if root.endswith(group):
+            for name in files:
+                filename = os.path.join(root, name)
+                for sample_low in sample_list:
+                    if name.startswith(sample_low) and name.endswith("fastq.gz"):
+                        dest_uncovered_path = os.path.join(uncovered_dir, name)
+                        os.rename(filename, dest_uncovered_path)
+    if os.path.isfile(sample_list_file):
+        edit_sample_list(sample_list_file, sample_list)
+
 
 def clean_unwanted_files(args):
     Trimmed_dir = ""

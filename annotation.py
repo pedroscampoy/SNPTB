@@ -326,14 +326,15 @@ def add_resistance_snp(vcf_df, dict_high_confidence=dict_high_conf, dict_resista
                 list_resistance.append(str(position)) #POS
                 list_resistance.append(snp_resist)
                 #Evaluate High confidence (1.Position; 2. Nucleotide; 3. yes value)
-                if (int(position) in dict_high_confidence.keys()) and \
+                if  (int(position) in dict_high_confidence.keys()) and \
                 (alt_nucleotide in dict_high_confidence[int(position)][1:] and \
                 dict_high_confidence[int(position)][0] == 'yes'):
+                    vcf_df.loc[index,'Resistance'] = resistance
+                    
+                else:
                     list_resistance.append("*")
                     
                     vcf_df.loc[index,'Resistance'] = resistance + "*"
-                else:
-                    vcf_df.loc[index,'Resistance'] = resistance
                     
             list_resistance.append("\t")
     #list_resistance.append(resistance + "\n")
@@ -474,13 +475,14 @@ css_report = """
     tr:hover {background-color:#7c7b7b;}
 
     footer{
-        position: absolute;
-        bottom: 0;
+        position: relative;
         width: 100%;
+        display: flex;
+        flex-flow: wrap;
     }
     footer p{
         padding-left: 10px;
-        font-size: 0.5em;
+        font-size: 0.75em;
         text-align: left;
     }
     @page {
@@ -495,7 +497,12 @@ css_report = """
         margin: 0px;
     }}
 
-    #info-text::before{
+    </style>
+
+    """
+
+"""
+#info-text::before{
         content: "";
         display: inline-block;
         height: 5px; 
@@ -508,10 +515,9 @@ css_report = """
         border: 3px dashed #D8A3CA;
         margin-right: 0.5em;
         }
+"""
 
-    </style>
 
-    """
 
 def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis", species_report="Main species: <i>Mycobacterium tuberculosis</i><br>"):
     #<div style="position: absolute; bottom: 5px; color: red; background-color: rgb(253, 253, 253)">
@@ -543,12 +549,12 @@ def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis
                 <div id = "info-text">
         """
         f.write(starter_div)
-        line_sample = "Sample name: " + sample + "<br> \
+        line_sample = "Nombre de la muestra: " + sample + "<br> \
             <br>\n"
         f.write(line_sample)
         cummulative_report = cummulative_report + starter_div + line_sample
 
-        line_species = "Species: " + "<i>" + str(species) + "</i>" + "<br> \
+        line_species = "Especie: " + "<i>" + str(species) + "</i>" + "<br> \
             <br>\n"
         f.write(line_species)
         cummulative_report = cummulative_report + species_report + "<br>\n"
@@ -572,19 +578,20 @@ def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis
                     if str(list_lineage[sublineage_n]).startswith(str(list_lineage[sublineage_n + 1])):
                         asterix = asterix + "*"
             final_lineage = str(list_lineage[0]) #+ " " + asterix
-            line_lineage = "This strain has lineage position(s): " + "<b>" + str(final_lineage) + "</b>" + "<br>\n \
+            line_lineage = "Esta cepa tiene los marcadores de Linaje: " + "<b>" + str(final_lineage) + "</b>" + "<br>\n \
                 <br>\n"
             f.write(line_lineage)
             cummulative_report = cummulative_report + line_lineage
         else:
-            line_lineage = "No lineage positions were found<br> \
-                <br>\n"
+            line_lineage = "<br>\n"
+                
             f.write(line_lineage)
             cummulative_report = cummulative_report + line_lineage
         
         #Output Resistance info
         if len(list_resistance) > 0:
-            line_res_1 = "This strain has " + str(len(list_resistance)) + " resistance position(s):<br>\n \
+            line_res_1 = "Esta cepa tiene " + str(len(list_resistance)) + " mutacion(es) asociada a resistencia:<br>\n \
+                <br>\n \
                 </div> \
                     </div>"
             f.write(line_res_1)
@@ -637,7 +644,7 @@ def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis
             cummulative_report = cummulative_report + table_res + "\n"
 
         else:
-            f.write("No Resistance positions were found<br> \
+            f.write("No se han encontrado mutaciones asociadas a resistencias<br> \
                 </div> \
                     </div>")
             cummulative_report = cummulative_report + "No Resistance positions were found<br>\n \
@@ -647,8 +654,9 @@ def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis
 
         f.write("\n<br>\n \
             <footer> \
+                <p>Los asteriscos (*) al final del campo 'Resistance' hacen referencia a posiciones de baja confianza. Se recomienda análisis fenotípico para los antibióticos señalados.</p>\n \
+                <p>El campo AF indica la frecuencia de la mutación, siendo 1 el 100%</p>\n \
                 <p>Este informe debe ser utilizado exclusivamente con fines de investigación. No utilizar ningún dato con fines asistenciales.</p>\n \
-                <p>Los asteriscos (*) al final del campo 'Resistance' hacen referencia a posiciones de alta confianza.</p>\n \
                 <br>\n \
             </footer>\n \
             </div>")

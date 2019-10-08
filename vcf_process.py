@@ -556,12 +556,25 @@ def coverage_to_list(input_file):
 
     return (sample_name, coverage_list)
 
+def coverage_to_df(input_file,min_coverage=2, nocall_fr=0.5):
+    sample_name = input_file.split("/")[-1].split(".")[0]
+    min_cov_df = pd.DataFrame()
+    coverage_list = []
+    with open(input_file, 'r') as f:
+            content = f.read()
+            content_list = content.split('\n')
+            while '' in content_list : content_list.remove('')
+    coverage_list = [int(x.split("\t")[2]) for x in content_list]
+    min_cov_df[sample_name] = coverage_list
+    min_cov_df = min_cov_df[min_cov_df < min_coverage].dropna(how='all')
+    
+    return min_cov_df
 
 def identify_uncovered(cov_folder, min_coverage=2, nocall_fr=0.5):
     cov_folder = os.path.abspath(cov_folder)
     len_files = set()
     #Create Position column and asign value
-    cov_df = pd.DataFrame(columns=['Position'])
+    cov_df = pd.DataFrame()
     
     for root, _, files in os.walk(cov_folder):
         for name in files:
@@ -571,29 +584,24 @@ def identify_uncovered(cov_folder, min_coverage=2, nocall_fr=0.5):
                 len_files.add(count_lines(filename))
                 #import to dataframe if they have the same positios(same reference)
                 if len(len_files) == 1:
-                    sample_name, coverage_list = coverage_to_list(filename)
-                    cov_df[sample_name] = coverage_list
+                    low_coverage_df = coverage_to_df(filename)
+                    cov_df = cov_df.merge(low_coverage_df, how='outer', left_index=True, right_index=True)          
                 else:
                     print("This file has different reference, please, check " + filename)
                     sys.exit(1)
-                    
-    cov_df['Position'] = cov_df.index + 1
-    cov_df = cov_df.astype(int)
-    
+                                   
     #Determine low covered positions in dataframe
-    poorly_covered = []
     #Filter positions with values lower than min_cov, dro rows with all false and extract the indet to iterate
-    list_any_uncovered = cov_df[cov_df < min_coverage].dropna(how='all').index.tolist()
-
-    for index in list_any_uncovered:
-        if any((int(x) < min_coverage) for x in cov_df.iloc[index,1:]):
-            data_row = cov_df.iloc[index,1:]
-            is_uncovered = [(int(x) < min_coverage) for x in data_row] #True False array
-            is_uncovered_count = sum(is_uncovered) #True = 1, False = 0
-            if is_uncovered_count / len(is_uncovered) > nocall_fr:
-                poorly_covered.append(cov_df.loc[index, 'Position'])
+    df_any_uncovered = cov_df[cov_df < min_coverage].dropna(how='all')#.index.tolist()
+    df_any_uncovered['N_uncovered'] = df_any_uncovered.count(axis=1)
+    df_any_uncovered['Position'] = df_any_uncovered.index + 1
     
-    return poorly_covered
+    n_samples = len(df_any_uncovered.columns) - 2
+    
+    df_half_uncovered_list = df_any_uncovered['Position'][df_any_uncovered.N_uncovered / n_samples > nocall_fr].tolist()
+    
+    return df_half_uncovered_list
+
 
 def poorly_covered_to_bed(coverage_folder, output_file_name, reference="CHROM", min_coverage=2, nocall_fr=0.5):
     """

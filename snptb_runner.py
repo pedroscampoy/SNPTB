@@ -165,6 +165,8 @@ if ("NC_000962.3" in args.reference) or ("h37rv" in args.reference.lower()) or (
 
 if args.bed_remove == "TB":
     bed_polymorphism = os.path.join(annotation_dir, "is_polymorphic.bed")
+else:
+    bed_polymorphism = False
 
 #Output related
 out_trim_dir = os.path.join(args.output, "Trimmed")
@@ -176,6 +178,8 @@ out_gvcf_dir = os.path.join(args.output, "GVCF")
 out_vcf_dir = os.path.join(args.output, "VCF")
 out_annot_dir = os.path.join(args.output, "Annotation")
 out_species_dir = os.path.join(args.output, "Species")
+out_trim_dir = os.path.join(args.output, "Uncovered")
+
 
 highly_hetz_bed = os.path.join(out_vcf_dir, "highly_hetz.bed")
 non_genotyped_bed = os.path.join(out_vcf_dir, "non_genotyped.bed")
@@ -185,6 +189,10 @@ for r1_file, r2_file in zip(r1, r2):
     sample = extract_sample(r1_file, r2_file)
     args.sample = sample
     if sample in sample_list_F:
+
+        sample_number = str(sample_list_F.index(sample) + 1)
+        sample_total = str(len(sample_list_F))
+
         out_bqsr_name = sample + ".bqsr.bam"
         output_bqsr_file = os.path.join(out_map_dir, out_bqsr_name)
 
@@ -193,7 +201,7 @@ for r1_file, r2_file in zip(r1, r2):
             args.r1_file = r1_file
             args.r2_file = r2_file
 
-            print("\n" + WHITE_BG + "STARTING SAMPLE: " + sample + END_FORMATTING)
+            print("\n" + WHITE_BG + "STARTING SAMPLE: " + sample + " (" + sample_number + "/" + sample_total + ")" + END_FORMATTING)
 
             ##############START PIPELINE#####################
             #################################################
@@ -308,13 +316,19 @@ output_cov_file = os.path.join(out_cov_dir, out_cov_name)
 
 if os.path.isfile(output_cov_file):
     print(YELLOW + DIM + output_cov_file + " EXIST\nOmmiting group coverage calculation for group " + group_name + END_FORMATTING)
+    saples_low_covered = []
 else:
     print(GREEN + "Group coverage stats in group " + group_name + END_FORMATTING)
     saples_low_covered = obtain_group_cov_stats(out_cov_dir, low_cov_threshold=20, unmmaped_threshold=20)
 
-poorly_covered_to_bed(out_cov_dir, "poorly_covered", reference="CHROM", min_coverage=2, nocall_fr=0.5)
 
-saples_low_covered = obtain_group_cov_stats(out_cov_dir, low_cov_threshold=args.mincov, unmmaped_threshold=20)
+if os.path.isfile(poorly_covered_bed):
+    print(YELLOW + DIM + output_cov_file + " EXIST\nOmmiting poorly covered calculation for group " + group_name + END_FORMATTING)
+else:
+    print(GREEN + "Calculating low covered regions " + group_name + END_FORMATTING)
+    poorly_covered_to_bed(out_cov_dir, "poorly_covered", reference="CHROM", min_coverage=2, nocall_fr=0.5)
+
+#saples_low_covered = obtain_group_cov_stats(out_cov_dir, low_cov_threshold=args.mincov, unmmaped_threshold=20)
 
 if len(saples_low_covered) > 0:
     print("\n" + YELLOW + BOLD + "There are sample(s) with low coverage that will be removed from the analysis: " + "\n"\
@@ -414,12 +428,16 @@ print("\n\n" + BLUE + BOLD + "STARTING RECALIBATION IN GROUP: " + group_name + E
 
 for r1_file, r2_file in zip(r1, r2):
     sample = extract_sample(r1_file, r2_file)
+
     args.sample = sample
     args.output = os.path.abspath(args.output)
 
     if sample in sample_list_F:
 
-        print("\n" + WHITE_BG + "RECALIBRATION AND CALL ON SAMPLE: " + sample + END_FORMATTING)
+        sample_number = str(sample_list_F.index(sample) + 1)
+        sample_total = str(len(sample_list_F))
+
+        print("\n" + WHITE_BG + "RECALIBRATION AND CALL ON SAMPLE: " + sample + " (" + sample_number + "/" + sample_total + ")" + END_FORMATTING)
 
         ##############START BAM RECALIBRATION############
         #################################################
