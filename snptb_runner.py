@@ -30,6 +30,7 @@ HEADER
 
 INSTITUTION:IiSGM
 AUTHOR: Pedro J. Sola (pedroscampoy@gmail.com)
+d^v^b
 VERSION=0.1
 CREATED: 28 April 2019
 REVISION: 
@@ -178,7 +179,7 @@ out_gvcf_dir = os.path.join(args.output, "GVCF")
 out_vcf_dir = os.path.join(args.output, "VCF")
 out_annot_dir = os.path.join(args.output, "Annotation")
 out_species_dir = os.path.join(args.output, "Species")
-out_trim_dir = os.path.join(args.output, "Uncovered")
+out_uncovered_dir = os.path.join(args.output, "Uncovered")
 
 
 highly_hetz_bed = os.path.join(out_vcf_dir, "highly_hetz.bed")
@@ -319,7 +320,7 @@ if os.path.isfile(output_cov_file):
     saples_low_covered = []
 else:
     print(GREEN + "Group coverage stats in group " + group_name + END_FORMATTING)
-    saples_low_covered = obtain_group_cov_stats(out_cov_dir, low_cov_threshold=20, unmmaped_threshold=20)
+    saples_low_covered = obtain_group_cov_stats(out_cov_dir, low_cov_threshold=args.mincov, unmmaped_threshold=20)
 
 
 if os.path.isfile(poorly_covered_bed):

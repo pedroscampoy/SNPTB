@@ -589,73 +589,51 @@ def create_report(tab_annot, css=css_report, species="Mycobacterium tuberculosis
             cummulative_report = cummulative_report + line_lineage
         
         #Output Resistance info
-        if len(list_resistance) > 0:
-            line_res_1 = "Esta cepa tiene " + str(len(list_resistance)) + " mutacion(es) asociada a resistencia:<br>\n \
+        if len(list_resistance) == 1:
+            line_res_1 = "Esta cepa tiene " + str(len(list_resistance)) + " mutación asociada a resistencia:<br>\n \
                 <br>\n \
                 </div> \
                     </div>"
             f.write(line_res_1)
             cummulative_report = cummulative_report + line_res_1
-            """
-            additional_resistance = []
-            final_res_table = pd.DataFrame(columns= df_res.columns.tolist())
-
-            for index, _ in df_annot[df_annot.Resistance.notnull()].iterrows():
-                position = str(df_annot.loc[index,'POS'])
-                resistance_name = df_annot.loc[index,'Resistance'].strip("*")
-                if df_annot.loc[index,'Gene_ID'].endswith("c"):
-                    alt_nucleotide = get_reverse(df_annot.loc[index,'ALT']).lower()
-                else:
-                    alt_nucleotide = df_annot.loc[index,'ALT'].lower()
-                    
-                    
-                if position in df_res['Variant position genome stop'].values.tolist():
-                    row = df_res[(df_res['Var. base'] == alt_nucleotide) & (df_res['Variant position genome stop'] == position)]
-                    index = row.index[0]
-                    final_res_table = final_res_table.append(df_res.iloc[index], ignore_index=True)
-                    #df_resistance_F.drop(df_resistance_F.iloc[index])
-                else:
-                    #df_resistance_F.drop(df_resistance_F.index[index])
-                    other_resistances = position + " " + alt_nucleotide + " " + resistance_name
-                    additional_resistance.append(other_resistances)
-                
-            
-            final_res_table.reset_index(drop=True, inplace=True)
-            final_res_table_F = final_res_table[['Variant position genome stop', 'Var. base',
-                                                'Region', 'Gene ID', 'Gene Name',
-                                                'AA change', 'Codon change', 'Antibiotic'
-                                                ]]
-            #df.rename(columns={'oldName1': 'newName1', 'oldName2': 'newName2'}, inplace=True)
-            final_res_table_F.columns = ['Position', 'Alt. base',
-                                                'Region', 'Gene ID', 'Gene Name',
-                                                'AA change', 'Codon change', 'Antibiotic'
-                                                ]
-            f.write(tabulate(final_res_table_F, headers='keys', tablefmt='html', showindex=False))
-            if len(additional_resistance) > 0:
-                f.write("<br><br>")
-                f.write("Found other putative resistances:<br>")
-                f.write(tabulate(df_resistance_F, headers='keys', tablefmt='html', showindex=False))
-                line_other_res = ("<br>").join(additional_resistance)
-                f.write(line_other_res)
-            
-            """
             f.write(tabulate(df_resistance_F, headers='keys', tablefmt='html', showindex=False))
             table_res = tabulate(df_resistance_F, headers='keys', tablefmt='html', showindex=False)
             cummulative_report = cummulative_report + table_res + "\n"
 
-        else:
-            f.write("No se han encontrado mutaciones asociadas a resistencias<br> \
+            f.write("\n<br>\n \
+            <footer> \
+                <p>Los asteriscos (*) al final del campo 'Resistance' hacen referencia a posiciones de baja confianza. Se recomienda análisis fenotípico para los antibióticos señalados.</p>\n \
+                <p>El campo AF indica la frecuencia de la mutación, siendo 1 el 100%</p>\n")
+
+        elif len(list_resistance) > 1:
+            line_res_1 = "Esta cepa tiene " + str(len(list_resistance)) + " mutaciones asociadas a resistencia:<br>\n \
+                <br>\n \
                 </div> \
-                    </div>")
+                    </div>"
+            f.write(line_res_1)
+            cummulative_report = cummulative_report + line_res_1
+            f.write(tabulate(df_resistance_F, headers='keys', tablefmt='html', showindex=False))
+            table_res = tabulate(df_resistance_F, headers='keys', tablefmt='html', showindex=False)
+            cummulative_report = cummulative_report + table_res + "\n"
+
+            f.write("\n<br>\n \
+            <footer> \
+                <p>Los asteriscos (*) al final del campo 'Resistance' hacen referencia a posiciones de baja confianza. Se recomienda análisis fenotípico para los antibióticos señalados.</p>\n \
+                <p>El campo AF indica la frecuencia de la mutación, siendo 1 el 100%</p>\n")
+                
+        else:
+            f.write("No se han encontrado mutaciones asociadas a resistencia<br> \
+                </div> \
+                    </div> \
+                    \n<br>\n \
+                <footer>")
             cummulative_report = cummulative_report + "No Resistance positions were found<br>\n \
                 </div> \
             </div> \
             </div>"
+            
 
         f.write("\n<br>\n \
-            <footer> \
-                <p>Los asteriscos (*) al final del campo 'Resistance' hacen referencia a posiciones de baja confianza. Se recomienda análisis fenotípico para los antibióticos señalados.</p>\n \
-                <p>El campo AF indica la frecuencia de la mutación, siendo 1 el 100%</p>\n \
                 <p>Este informe debe ser utilizado exclusivamente con fines de investigación. No utilizar ningún dato con fines asistenciales.</p>\n \
                 <br>\n \
             </footer>\n \
