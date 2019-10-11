@@ -374,3 +374,54 @@ def count_lines(input_file):
         content_list = content.split('\n')
         while '' in content_list : content_list.remove('')
     return len(content_list)
+
+def check_reanalysis(output_dir):
+    output_dir = os.path.abspath(output_dir)
+    #group = output_dir.split("/")[-1]
+    
+    bam_dir = os.path.join(output_dir, "Bam")
+    vcf_dir = os.path.join(output_dir, "VCF")
+    gvcf_dir = os.path.join(output_dir, "GVCF")
+    gvcfr_dir = os.path.join(output_dir, "GVCF_recal")
+    vcfr_dir = os.path.join(output_dir, "VCF_recal")
+    cov_dir = os.path.join(output_dir, "Coverage")
+    
+    previous_files = [bam_dir, vcf_dir, gvcf_dir, gvcfr_dir]
+    
+    #check how many folders exist
+    file_exist = sum([os.path.exists(x) for x in previous_files]) #True = 1, False = 0
+    
+    #Handle reanalysis: First time; reanalysis o reanalysis with aditional samples
+    if file_exist > 0: #Already analysed
+        
+        samples_analyzed = os.listdir(bam_dir)
+        samples_analyzed = len([ x for x in samples_analyzed if ".bai" not in x and "bqsr" in x])
+
+        samples_fastq = os.listdir(output_dir)
+        samples_fastq = len([ x for x in samples_fastq if x.endswith('fastq.gz')]) / 2
+        
+        if samples_analyzed >= samples_fastq:
+            print(MAGENTA + "\nPREVIOUS ANALYSIS DETECTED, NO NEW SEQUENCES ADDED\n" + END_FORMATTING)
+        
+        else:
+            print(MAGENTA + "\nPREVIOUS ANALYSIS DETECTED, NEW SEQUENCES ADDED\n" + END_FORMATTING)
+            for root, _, files in os.walk(output_dir):
+                    if root ==  gvcf_dir or root == gvcfr_dir or root == vcfr_dir:
+                        for name in files:
+                            filename = os.path.join(root, name)
+                            if (("GVCF_recal" in filename) or ("/VCF_recal" in filename)) and "cohort" in filename and samples_analyzed < 100:
+                                os.remove(filename)
+                            elif "cohort" in filename and "/GVCF/" in filename:
+                                os.remove(filename)
+                    elif root == vcf_dir:
+                        for name in files:
+                            filename = os.path.join(root, name)
+                            if "cohort" in filename or filename.endswith(".bed"):
+                                os.remove(filename)
+                    elif root == cov_dir:
+                        for name in files:
+                            filename = os.path.join(root, name)
+                            if "coverage.tab" in filename or\
+                            "poorly_covered.bed" in filename:
+                                os.remove(filename)
+            #print(file_exist, samples_analyzed, samples_fastq)

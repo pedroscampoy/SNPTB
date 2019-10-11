@@ -12,7 +12,8 @@ import subprocess
 
 # Local application imports
 from misc import check_file_exists, extract_sample, obtain_output_dir, check_create_dir, execute_subprocess, \
-    extract_read_list, file_to_list, get_coverage, obtain_group_cov_stats, remove_low_covered, clean_unwanted_files
+    extract_read_list, file_to_list, get_coverage, obtain_group_cov_stats, remove_low_covered, clean_unwanted_files, \
+    check_reanalysis
 from bbduk_trimmer import bbduk_trimming
 from pe_mapper import bwa_mapping, sam_to_index_bam
 from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplotype_caller, call_variants, \
@@ -112,6 +113,8 @@ args = get_arguments()
 
 print("ARGUMENTS\n")
 print(args)
+
+check_reanalysis(args.output)
 
 #Obtain all R1 and R2 from folder
 r1, r2 = extract_read_list(args.input_dir)
@@ -546,6 +549,7 @@ else:
 ###########################################################################
 ###########################################################################
 ###########################################################################
+print(GREEN + "Determininf highly heterozygous and poorly genotyped regions in " + group_name + END_FORMATTING)
 highly_hetz_to_bed(output_vcfhfcombined_file, "highly_hetz", reference="CHROM", nocall_fr=0.5)
 non_genotyped_to_bed(output_vcfhfcombined_file, "non_genotyped", reference="CHROM", nocall_fr=0.5)
 
