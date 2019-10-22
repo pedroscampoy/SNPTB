@@ -250,13 +250,22 @@ def get_coverage(args, input_bam, output_fmt="-d"):
 def calculate_cov_stats(file_cov):
     df = pd.read_csv(file_cov, sep="\t", names=["#CHROM", "POS", "COV" ])
     unmmaped_pos = len(df.POS[df.COV == 0].tolist())
+    pos_0_10 = len(df.POS[(df.COV > 0) & (df.COV <= 10)].tolist())
+    pos_10_20 = len(df.POS[(df.COV > 10) & (df.COV <= 20)].tolist())
+    pos_high20 = len(df.POS[(df.COV > 20)].tolist())
     total_pos = df.shape[0]
     unmmaped_prop = "%.2f" % ((unmmaped_pos/total_pos)*100)
+    prop_0_10 = "%.2f" % ((pos_0_10/total_pos)*100)
+    prop_10_20 = "%.2f" % ((pos_10_20/total_pos)*100)
+    prop_high20 = "%.2f" % ((pos_high20/total_pos)*100)
+    
     mean_cov = "%.2f" % (df.COV.mean())
-    return mean_cov, unmmaped_prop
+    
+    return mean_cov, unmmaped_prop, prop_0_10, prop_10_20, prop_high20
 
 def obtain_group_cov_stats(directory, low_cov_threshold=20, unmmaped_threshold=20):
     directory_path = os.path.abspath(directory)
+    
     if directory_path.endswith("Coverage"):
         file_name = directory_path.split("/")[-2]
     else:
@@ -268,17 +277,21 @@ def obtain_group_cov_stats(directory, low_cov_threshold=20, unmmaped_threshold=2
     saples_low_covered = []
 
     with open(output_file, "w") as outfile:
-            outfile.write("#SAMPLE" + "\t" + "MEAN_COV" + "\t" + "UNMMAPED_PROP" + "\n")
+            outfile.write("#SAMPLE" + "\t" + "MEAN_COV" + "\t" + "UNMMAPED_PROP" + "\t" + "COV1-10X" + "\t" + "COV10-20X" + "\t" + "COV>20X" + "\t" + "\n")
+            #print("#SAMPLE" + "\t" + "MEAN_COV" + "\t" + "UNMMAPED_PROP" + "\t" + "COV1-10X" + "\t" + "COV10-20X" + "\t" + "COV>20X" + "\t" + "\n")
             for root, _, files in os.walk(directory_path):
                 for name in files:
                     filename = os.path.join(root, name)
                     file_name_cov = os.path.basename(filename)
                     sample = file_name_cov.split(".")[0]
-                    if filename.endswith(".cov") and (os.path.getsize(filename) > 0):
-                        mean_cov, unmmaped_prop = calculate_cov_stats(filename)
+                    if filename.endswith("cov") and (os.path.getsize(filename) > 0):
+                        coverage_stats = calculate_cov_stats(filename)
+                        mean_cov = coverage_stats[0]
+                        unmmaped_prop = coverage_stats[1]
                         if float(mean_cov) < low_cov_threshold or float(unmmaped_prop) > unmmaped_threshold:
                             saples_low_covered.append(sample)
-                        outfile.write("%s\t%s\t%s\n" % (sample, mean_cov, unmmaped_prop))
+                        outfile.write(sample + "\t" + ("\t").join(coverage_stats) + "\n")
+                        #print((sample + "\t" + ("\t").join(coverage_stats)) + "\n")
 
     return saples_low_covered
 
@@ -302,6 +315,13 @@ def remove_low_covered(output_dir, sample_list):
     for root, _, files in os.walk(output_dir):
         #Remove recall gvcf to avoid using them to recalibrate
         if root.endswith('GVCF_recal'):
+            for name in files:
+                filename = os.path.join(root, name)
+                for sample_low in sample_list:
+                    if name.startswith(sample_low):
+                        os.remove(filename)
+        #Remove .cov to avoid its recalculation
+        if root.endswith('Coverage'):
             for name in files:
                 filename = os.path.join(root, name)
                 for sample_low in sample_list:
@@ -421,7 +441,8 @@ def check_reanalysis(output_dir):
                     elif root == cov_dir:
                         for name in files:
                             filename = os.path.join(root, name)
-                            if "coverage.tab" in filename or\
-                            "poorly_covered.bed" in filename:
+                            if "coverage.tab" in filename:
+                                os.remove(filename)
+                            if "poorly_covered.bed" in filename and samples_analyzed < 100:
                                 os.remove(filename)
             #print(file_exist, samples_analyzed, samples_fastq)
