@@ -48,6 +48,17 @@ def check_remove_file(file_name):
         os.remove(file_name)
     
 
+def import_to_pandas(file_table, header=False, sep='\t'):
+    if header == False:
+        #exclude first line, exclusive for vcf outputted by PipelineTB
+        dataframe = pd.read_csv(file_table, sep=sep, skiprows=[0], header=None)
+    else:
+        #Use first line as header
+        dataframe = pd.read_csv(file_table, sep=sep, header=0)
+    
+    return dataframe
+
+
 def extract_sample(R1_file, R2_file):
     """
     Extract sample from R1, R2 files.

@@ -9,6 +9,8 @@ import re
 import argparse
 #import argcomplete
 import subprocess
+import datetime
+
 
 # Local application imports
 from misc import check_file_exists, extract_sample, obtain_output_dir, check_create_dir, execute_subprocess, \
@@ -22,7 +24,7 @@ from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplot
 from vcf_process import vcf_consensus_filter, highly_hetz_to_bed, poorly_covered_to_bed, non_genotyped_to_bed
 from annotation import replace_reference, snpeff_annotation, final_annotation, create_report, css_report
 from species_determination import mash_screen, extract_species_from_screen
-
+from compare_snp import ddtb_add, ddtb_compare
 
 """
 =============================================================
@@ -183,7 +185,7 @@ out_vcf_dir = os.path.join(args.output, "VCF")
 out_annot_dir = os.path.join(args.output, "Annotation")
 out_species_dir = os.path.join(args.output, "Species")
 out_uncovered_dir = os.path.join(args.output, "Uncovered")
-
+out_compare_dir = os.path.join(args.output, "Compare")
 
 highly_hetz_bed = os.path.join(out_vcf_dir, "highly_hetz.bed")
 non_genotyped_bed = os.path.join(out_vcf_dir, "non_genotyped.bed")
@@ -647,6 +649,26 @@ if args.tuberculosis == True:
 else:
     print("NO TB Selected, snpEff won't be executed")
 
+
+
+
+print("\n\n" + BLUE + BOLD + "STARTING COMPARISON IN GROUP: " + group_name + END_FORMATTING + "\n")
+
+check_create_dir(out_compare_dir)
+today = str(datetime.date.today())
+folder_compare = today + "_" + group_name
+path_compare = os.path.join(out_compare_dir, folder_compare)
+check_create_dir(path_compare)
+full_path_compare = os.path.join(path_compare, group_name)
+
+compare_snp_matrix = full_path_compare + ".revised.tsv"
+
+ddtb_add(out_vcf_dir, full_path_compare, recalibrate=args.output)
+ddtb_compare(compare_snp_matrix)
+
+print("\n\n" + MAGENTA + BOLD + "COMPARING FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")
+
+
 if args.clean == True:
     print("\n\n" + BLUE + BOLD + "STARTING CLEANING IN GROUP: " + group_name + END_FORMATTING + "\n")
     clean_unwanted_files(args)
@@ -654,7 +676,6 @@ else:
     print("No cleaning was requested")
 
 print("\n\n" + MAGENTA + BOLD + "#####END OF PIPELINE SNPTB#####" + END_FORMATTING + "\n")
-
 
 #./snptb_runner.py -i /home/laura/ANALYSIS/Lofreq/coinfection_designed/raw -r reference/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_designed/TEST -s sample_list.txt
 #/home/laura/DEVELOP/SNPTB/snptb_runner.py -i /home/laura/RAW/Mixtas_Italia/ -r /home/laura/DATABASES/REFERENCES/ancestorII/MTB_ancestorII_reference.fasta -o /home/laura/ANALYSIS/Lofreq/coinfection_italy/
