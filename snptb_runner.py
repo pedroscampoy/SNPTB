@@ -7,7 +7,6 @@ import re
 
 # Third party imports
 import argparse
-#import argcomplete
 import subprocess
 import datetime
 
@@ -105,8 +104,6 @@ def get_arguments():
     params_group.add_argument('-M', '--memory', type=str, dest = "memory", required=False, default=32, help='MAx memory to use')
 
 
-
-    #argcomplete.autocomplete(parser)
     arguments = parser.parse_args()
 
     return arguments

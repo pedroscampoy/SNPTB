@@ -1,20 +1,18 @@
+#!/usr/bin/env python
+
 import os
 import pandas as pd
 import argparse
 import sys
 import subprocess
-from sklearn.metrics import jaccard_similarity_score, pairwise_distances
+from sklearn.metrics import jaccard_similarity_score, pairwise_distances, accuracy_score
 import seaborn as sns
 import matplotlib.pyplot as plt
 import datetime
 import scipy.cluster.hierarchy as shc
 import scipy.spatial.distance as ssd #pdist
-#import PyQt5
-#from PyQt5 import QtGui
-#import ete3
-#from ete3 import Tree, TreeStyle
 
-from misc import check_file_exists, import_to_pandas
+from misc import check_file_exists, import_to_pandas, check_create_dir
 from vcf_process import import_VCF42_cohort_pandas
 
 END_FORMATTING = '\033[0m'
@@ -31,61 +29,12 @@ DIM = '\033[2m'
 
 def get_arguments():
 
-    #Define parser and program
-    parser = argparse.ArgumentParser(prog = "VCF_DDTB.py", description= "copare SNP presence in vcf files") 
-
-    #Define subtask/subparsers
-    subparsers = parser.add_subparsers( dest = "subtask", help = "new / update / compare / extract commands either add new samples, compare or discard exixting samples")
-
-    new_parser = subparsers.add_parser("new", help = "Create new ddbb with presence/absence of snp")
-    update_parser = subparsers.add_parser("update", help = "Add new sample using a list of variants, files supplied or files on folder")
-    compare_parser = subparsers.add_parser("compare", help = "Comapare samples supplied or all samples to obtain a pirwise matrix")
-    extract_parser = subparsers.add_parser("extract", help = "Remove samples supplied from databse")
-
-
-    #new_parser
-    new_parser.add_argument("-o", "--outputfile",  dest = "output_file", required= True, metavar="filename", help="REQUIRED: file name, including PATH, of the newd ddbb")
-    new_parser.add_argument("-v", "--vcf", required= False, action='store_true', help="Database will use vcf files instead of ")
-    new_parser.add_argument("-s", "--suffix", required= False, type=str, default=".SNP.final.vcf", help="Suffix to filter within vcf with similar suffix")
-    new_parser.add_argument("-r", "--recalibrate", required= False, type=str, default=False, help="Folder with tab files to asses discrepancies after comparing")
-
-
-    new_exclusive = new_parser.add_mutually_exclusive_group(required= True)
-
-    new_exclusive.add_argument("-F", "--folder",  dest = "folder", metavar="folder",required= False, type=str, help="Folder containinig files with snp positions")
-    new_exclusive.add_argument("-f", "--file",  dest = "single_file", metavar="file[s]", required= False, type=str, help="individual files with snp positions")
-    new_exclusive.add_argument("-l", "--list",  dest = "snp_list", metavar="list", required= False, help="file with a list of positions in a column, not vcf format")
-
-
-    #update_parser
-    update_parser.add_argument("-o", "--outputfile",  dest = "output_file", required= True, metavar="filename", help="REQUIRED: file name, including PATH, of the updated ddbb")
-    update_parser.add_argument("-s", "--snp-final", required= False, action='store_true', help="Database will use snp.fila instead of gatk vcf ")
-    update_parser.add_argument("-d", "--database",  dest = "update_database", required= True, metavar="TB_database", help="REQUIRED: csv file with the database to be enriched/consulted")
-
-    update_exclusive = update_parser.add_mutually_exclusive_group()
-
-    update_exclusive.add_argument("-F", "--folder",  dest = "folder", metavar="folder",required= False, type=str, help="Folder containinig files with snp positions")
-    update_exclusive.add_argument("-f", "--file",  dest = "single_file", metavar="file[s]", required= False, type=str, help="individual files with snp positions")
-    update_exclusive.add_argument("-l", "--list",  dest = "snp_list", metavar="list", required= False, help="file with a list of positions in a column, not vcf format")
-
-    update_parser.add_argument("-b", "--backup",  dest = "backup", action="store_true", help="Creates an aditional database with the date as backup")
-
-    #compare_parser
-    compare_parser.add_argument("-d", "--database",  dest = "final_database", required= True, metavar="TB_database", help="REQUIRED: csv file with the database to be enriched/consulted")
-    compare_parser.add_argument("-o", "--outputfile",  dest = "output_file", required= False, metavar="filename", help="REQUIRED: file name, including PATH, of the matrix comparison")
-
-    compare_exclusive = compare_parser.add_mutually_exclusive_group()
-
-    compare_exclusive.add_argument("-a", "--all",  dest = "all_compare", action="store_true", required= False, help="All files in supplied database will be compared")
-    compare_exclusive.add_argument("-s", "--samples",  dest = "samples_compare", metavar="sample_name[s]", nargs="+", required= False, help="Sample names supplied will be compared")
-
-    #extract_parser
-    extract_parser.add_argument("-d", "--database",  dest = "final_database", required= True, metavar="TB_database", help="REQUIRED: csv file with the database with the sample to remove")
-    extract_parser.add_argument("-o", "--outputfile",  dest = "output_file", required= True, metavar="filename", help="REQUIRED: file name, including PATH, of the updated ddbb")
-
-    extract_parser.add_argument("-s", "--samples",  dest = "samples_extract", metavar="sample name[s]", nargs="+", required= True, help="Sample names supplied will be removed")
-
-    parser.add_argument("--version", action="version", version="%(prog)s 0.1")
+    parser = argparse.ArgumentParser(prog = 'snptb.py', description= 'Pipeline to call variants (SNVs) with any non model organism. Specialised in Mycobacterium Tuberculosis')
+    
+    parser.add_argument('-i', '--input', dest="input_dir", metavar="input_directory", type=str, required=True, help='REQUIRED.Input directory containing all vcf files')
+    parser.add_argument('-s', '--sample_list', type=str, required=False, help='File with sample names to analyse instead of all samples')
+    parser.add_argument("-r", "--recalibrate", required= False, type=str, default=False, help='Pipeline folder where Bam and VCF subfolders are present')
+    parser.add_argument('-o', '--output', type=str, required=True, help='Name of all the output files, might include path')
 
     arguments = parser.parse_args()
 
@@ -197,26 +146,31 @@ def identify_nongenotyped_mpileup(reference_file, row_position, sample_list_matr
         return list_presence
 
 def extract_recalibrate_params(pipeline_folder):
+    cohort_file = ""
+    pipeline_folder = os.path.abspath(pipeline_folder)
     for root, dirs, _ in os.walk(pipeline_folder):
+        #print(pipeline_folder, root)
         if root == pipeline_folder:
             for directory in dirs:
                 subfolder = os.path.join(root, directory)
                 if subfolder.endswith("/VCF"):
-                    for file in os.listdir(subfolder):
-                        if file.endswith("cohort.combined.hf.vcf"):
-                            cohort_file = os.path.join(subfolder, file)
+                    for file_vcf in os.listdir(subfolder):
+                        if file_vcf.endswith("cohort.combined.hf.vcf"):
+                            cohort_file = os.path.join(subfolder, file_vcf)
                             
                             with open(cohort_file, 'r') as f:
                                 for line in f:
                                     if line.startswith("#"):
                                         if "--reference " in line:
                                             reference_file = line.split("--reference ")[1].strip().split(" ")[0].strip()
-                                        
-                            
                 elif subfolder.endswith("/Bam"):
                     bam_folder = subfolder
+    if cohort_file:
+        return (cohort_file, bam_folder, reference_file)
+    else:
+        print(RED + "cohort.combined.hf.vcf not found, wait for pipeline to finish" + END_FORMATTING)
+        sys.exit(1)
                     
-    return (cohort_file, bam_folder, reference_file)
 
 def recalibrate_ddbb_vcf(snp_matrix_ddbb, vcf_cohort, bam_folder, reference_file):
     
@@ -258,81 +212,101 @@ def recalibrate_ddbb_vcf(snp_matrix_ddbb, vcf_cohort, bam_folder, reference_file
     return df_matrix
 
 
-def ddtb_add(input_folder, output_filename, recalibrate=False):
+def ddtb_add(input_folder, output_filename, recalibrate=False, sample_filter=False, vcf_suffix=".combined.hf.SNP.final.vcf" ):
     directory = os.path.abspath(input_folder)
     output_filename = os.path.abspath(output_filename)
-
-    final_ddbb = blank_database()
 
     #Make sure output exist to force change name
     if os.path.isfile(output_filename):
         print(YELLOW + "ERROR: " + BOLD + "output database EXIST, choose a different name or manually delete" + END_FORMATTING)
         sys.exit(1)
 
-    print("Previous final database contains %s rows and %s columns\n" % final_ddbb.shape)
+    final_ddbb = blank_database()
+    sample_filter_list = []
+
+
+    #Handle sample filter
+    if sample_filter == False:
+        sample_filter_list = [x.split(".")[0] for x in os.listdir(input_folder) if x.endswith(vcf_suffix)]
+    else:
+        if os.path.isfile(sample_filter):
+            with open(sample_filter, 'r') as f:
+                for line in f:
+                    sample_filter_list.append(line.strip())
+        else:
+            "Sample file don't exist"
+            sys.exit(1)
+    
+    print(sample_filter_list)
+
+    if len(sample_filter_list) < 1:
+        print("prease provide 2 or more samples")
+        sys.exit(1)
+
+    #print("Previous final database contains %s rows and %s columns\n" % final_ddbb.shape)
     print("The directory selected is: %s" % directory)
     
 
     all_samples = 0
     new_samples = 0
     for filename in os.listdir(directory):
-        if not filename.startswith('.') and filename.endswith(".combined.hf.SNP.final.vcf"):
-            print("\nThe file is: %s" % filename)
+        if not filename.startswith('.') and filename.endswith(vcf_suffix):
             
             all_samples = all_samples + 1
             positions_shared = []
             positions_added = []
             
             sample = filename.split(".")[0] #Manage sample name
-            
-            file = os.path.join(directory, filename) #Whole file path
-            check_file_exists(file) #Manage file[s]. Check if file exist and is greater than 0
 
-            new_sample = import_VCF4_to_pandas(file) #Import files in annotated vcf format
+            if sample in sample_filter_list:
+                print("\nThe file is: %s" % filename)
 
-            #Handle each new_sample
-            #print("This file contains %s SNPs" % len(new_sample.index))
             
-            #Check if sample exist
-            ######################
-            if sample not in final_ddbb.columns.tolist():
-                print("Adding new sample %s to %s" % (sample, os.path.basename(output_filename)))
-                new_samples = new_samples + 1
-                new_colum_index = len(final_ddbb.columns) #extract the number of columns to insert a new one
-                #final_ddbb[sample] = sample #adds a new column but fills all blanks with the value sample
-                final_ddbb.insert(new_colum_index, sample, 0) #add a new column with defauls values = 0
-                
-                #Check if position exist
-                ########################
-                for position in new_sample['POS'].unique(): #extract first column in file
+                file = os.path.join(directory, filename) #Whole file path
+                check_file_exists(file) #Manage file[s]. Check if file exist and is greater than 0
+
+                new_sample = import_VCF4_to_pandas(file) #Import files in annotated vcf format
+
+                #Check if sample exist
+                ######################
+                if sample not in final_ddbb.columns.tolist():
+                    print("Adding new sample %s to %s" % (sample, os.path.basename(output_filename)))
+                    new_samples = new_samples + 1
+                    new_colum_index = len(final_ddbb.columns) #extract the number of columns to insert a new one
+                    #final_ddbb[sample] = sample #adds a new column but fills all blanks with the value sample
+                    final_ddbb.insert(new_colum_index, sample, 0) #add a new column with defauls values = 0
                     
-                    if position not in final_ddbb["Position"].values:
-                        positions_added.append(position) #Count new positions for stats
+                    #Check if position exist
+                    ########################
+                    for position in new_sample['POS'].unique(): #extract first column in file
                         
-                        new_row = len(final_ddbb.index)
-                        final_ddbb.loc[new_row,'Position'] = position
-                        final_ddbb.loc[new_row,'Samples'] = sample
-                        final_ddbb.loc[new_row,'N'] = int(1)
-                        final_ddbb.loc[new_row,sample] = str(1)
-                    else:
-                        positions_shared.append(position) #Count shared positions for stats
-                        
-                        #Check whether the column matches the value and retrieve the first position [0]
-                        #of the object index generated
-                        index_position = final_ddbb.index[final_ddbb["Position"] == position][0]
-                        #Add sample to corresponding cell [position, samples]
-                        number_samples_with_position = final_ddbb.loc[index_position,'N']
-                        names_samples_with_position = final_ddbb.loc[index_position,'Samples']
-                        new_names_samples = names_samples_with_position + "," + sample
-                        #Sum 1 to the numbes of samples containing the position
-                        final_ddbb.loc[index_position,'N'] = number_samples_with_position + 1
-                        final_ddbb.loc[index_position,'Samples'] = new_names_samples
-                        final_ddbb.loc[index_position,sample] = str(1) #Add "1" in cell with correct position vs sample (indicate present)
+                        if position not in final_ddbb["Position"].values:
+                            positions_added.append(position) #Count new positions for stats
+                            
+                            new_row = len(final_ddbb.index)
+                            final_ddbb.loc[new_row,'Position'] = position
+                            final_ddbb.loc[new_row,'Samples'] = sample
+                            final_ddbb.loc[new_row,'N'] = int(1)
+                            final_ddbb.loc[new_row,sample] = str(1)
+                        else:
+                            positions_shared.append(position) #Count shared positions for stats
+                            
+                            #Check whether the column matches the value and retrieve the first position [0]
+                            #of the object index generated
+                            index_position = final_ddbb.index[final_ddbb["Position"] == position][0]
+                            #Add sample to corresponding cell [position, samples]
+                            number_samples_with_position = final_ddbb.loc[index_position,'N']
+                            names_samples_with_position = final_ddbb.loc[index_position,'Samples']
+                            new_names_samples = names_samples_with_position + "," + sample
+                            #Sum 1 to the numbes of samples containing the position
+                            final_ddbb.loc[index_position,'N'] = number_samples_with_position + 1
+                            final_ddbb.loc[index_position,'Samples'] = new_names_samples
+                            final_ddbb.loc[index_position,sample] = str(1) #Add "1" in cell with correct position vs sample (indicate present)
 
-                print("\nSAMPLE:\t%s\nTOTAL Variants:\t%s\nShared Variants:\t%s\nNew Variants:\t%s\n"
-                % (sample, len(new_sample.index), len(positions_shared), len(positions_added)))
-            else:
-                print(YELLOW + "The sample " + sample + " ALREADY exist" + END_FORMATTING)
+                    print("\nSAMPLE:\t%s\nTOTAL Variants:\t%s\nShared Variants:\t%s\nNew Variants:\t%s\n"
+                    % (sample, len(new_sample.index), len(positions_shared), len(positions_added)))
+                else:
+                    print(YELLOW + "The sample " + sample + " ALREADY exist" + END_FORMATTING)
 
     final_ddbb = final_ddbb.fillna(0).sort_values("Position") #final_ddbb = final_ddbb["Position"].astype(int)
     final_ddbb['N'] = final_ddbb['N'].astype(int)
@@ -366,7 +340,7 @@ def ddtb_add(input_folder, output_filename, recalibrate=False):
     ###########################COMPARE FUNCTIONS#####################################################################
 
 def compare_snp_columns(sample1, sample2, df):
-    jaccard_similarity = jaccard_similarity_score(df[sample1], df[sample2]) #similarities between colums
+    jaccard_similarity = accuracy_score(df[sample1], df[sample2]) #similarities between colums
     hamming_similarity = 1 - jaccard_similarity #disagreements between colums
     snp_distance = int(hamming_similarity * (len(df.index)+1))
     return snp_distance
@@ -449,6 +423,58 @@ def linkage_to_newick(dataframe, output_file):
         f.write(buildNewick(tree, "", tree.dist, labelList))
     return buildNewick(tree, "", tree.dist, labelList)
 
+def matrix_to_rdf(snp_matrix, output_name):
+    #snp_matrix = import_to_pandas(tsv_matrix, header=True)
+    #tsv_matrix = os.path.abspath(tsv_matrix)
+    #output_name = ".".join(tsv_matrix.split(".")[:-1]) + ".rdf"
+    #output_name = output_name + ".rdf"
+
+    max_samples = max(snp_matrix.N.tolist())
+    snp_matrix = snp_matrix[snp_matrix.N < max_samples]
+    
+    with open(output_name, 'w+') as fout:
+        snp_number = snp_matrix.shape[0]
+        first_line = "  ;1.0\n"
+        #print(first_line)
+        fout.write(first_line)
+        snp_list = snp_matrix.Position.astype(int).tolist()
+        snp_list = " ;".join([str(x) for x in snp_list]) + " ;\n"
+        #print(snp_list)
+        fout.write(snp_list)
+        third_line = ("10;" * snp_number) + "\n"
+        #print(third_line)
+        fout.write(third_line)
+        transposed_snp_matrix = snp_matrix.T
+        for index, row in transposed_snp_matrix.iloc[3:,:].iterrows():
+            sample_header = ">"+ index+";1;;;;;;;\n"
+            #print(sample_header)
+            fout.write(sample_header)
+            snp_row = "".join([str(x) for x in row.tolist()]) + "\n"
+            #print(snp_row)
+            fout.write(snp_row)
+        ref_header = ">REF;1;;;;;;;\n"
+        #print(ref_header)
+        fout.write(ref_header)
+        ref_snp = "0" * snp_number
+        #print(ref_snp)
+        fout.write(ref_snp)
+
+def matrix_to_common(snp_matrix, output_name):
+    #snp_matrix = import_to_pandas(tsv_matrix, header=True)
+    #tsv_matrix = os.path.abspath(tsv_matrix)
+    #output_name = ".".join(tsv_matrix.split(".")[:-1]) + ".rdf"
+    #output_name = output_name + ".rdf"
+
+    max_samples = max(snp_matrix.N.tolist())
+    total_samples = len(snp_matrix.columns[3:])
+    if max_samples == total_samples:
+        with open(output_name, 'w+') as fout: 
+            common_snps = snp_matrix['Position'][snp_matrix.N == max_samples].astype(int).astype(str).tolist()
+            line = "\n".join(common_snps)
+            fout.write("Position\n")
+            fout.write(line)
+    else:
+        print("No common SNPs were found")
 
 def ddtb_compare(final_database):
 
@@ -494,12 +520,34 @@ def ddtb_compare(final_database):
     png_dend_file = output_path + ".snp.dendrogram.png"
     dendogram_dataframe(presence_ddbb, png_dend_file)
 
-
     #Output a Newick file distance for all and save file
     print(CYAN + "Newick dendrogram" + END_FORMATTING)
     newick_file = output_path + ".nwk"
     linkage_to_newick(presence_ddbb, newick_file)
 
+    #Output a binary snp matrix distance in rdf format
+    print(CYAN + "rdf format" + END_FORMATTING)
+    rdf_file = output_path + ".rdf"
+    matrix_to_rdf(presence_ddbb, rdf_file)
+
+    #Output a list of all common snps in group compared
+    print(CYAN + "Common SNPs" + END_FORMATTING)
+    common_file = output_path + ".common.txt"
+    matrix_to_common(presence_ddbb, common_file)
+
+    
+
 
 if __name__ == '__main__':
     print("#################### COMPARE SNPS #########################")
+
+    args = get_arguments()
+    print(args)
+
+    if args.recalibrate == False:
+        compare_snp_matrix = args.output + ".tsv"
+    else:
+        compare_snp_matrix = args.output + ".revised.tsv"
+
+    ddtb_add(args.input_dir, args.output, sample_filter=args.sample_list, recalibrate=args.recalibrate)
+    ddtb_compare(compare_snp_matrix)

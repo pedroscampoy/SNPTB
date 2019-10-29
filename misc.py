@@ -181,9 +181,9 @@ def extract_read_list(input_dir):
         if root == input_dir: # This only apply to parent folder, not subdirectories
             for name in files:
                 filename = os.path.join(root, name)
-                is_fasta = re.match(r'.*\.fast[aq](\.gz)*',name)
-                r1 = re.match(r'.*(_R1_|_1|_1_|_R1).*\.fast[aq](\.gz)*$',name)
-                r2 = re.match(r'.*(_R2_|_2|_2_|_R2).*\.fast[aq](\.gz)*$',name)
+                is_fasta = re.match(r'.*\.f(ast)*[aq](\.gz)*',name)
+                r1 = re.match(r'.*(_R1_|_1|_1_|_R1).*\.f(ast)*[aq](\.gz)*$',name)
+                r2 = re.match(r'.*(_R2_|_2|_2_|_R2).*\.f(ast)*[aq](\.gz)*$',name)
                 if is_fasta:
                     if r1:
                         r1_list.append(filename)
