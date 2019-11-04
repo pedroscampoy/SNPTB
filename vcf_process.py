@@ -6,6 +6,7 @@ import argparse
 import pandas as pd
 import numpy as np
 import re
+import gzip
 import subprocess
 from misc import check_file_exists, obtain_output_dir, check_create_dir, get_picard_path, execute_subprocess, check_remove_file, \
 list_to_bed, count_lines

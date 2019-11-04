@@ -330,7 +330,8 @@ def remove_low_covered_mixed(output_dir, sample_list, type_remove):
         # and Species for both uncovered and mixed
         if root.endswith('GVCF_recal') or root.endswith('Coverage') \
         or root.endswith('VCF') or root.endswith('VCF_recal') \
-        or root.endswith('Bam') or root.endswith('GVCF'):
+        or root.endswith('Bam') or root.endswith('GVCF') \
+        or root.endswith('Table'):
             for name in files:
                 filename = os.path.join(root, name)
                 for sample_low in sample_list:

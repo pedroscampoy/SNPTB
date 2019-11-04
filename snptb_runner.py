@@ -579,23 +579,6 @@ for r1_file, r2_file in zip(r1, r2):
              bed_to_filter=bed_polymorphism, 
              var_type="SNP")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #DETEMINING MIXED ORIGIN IN GROUP######################
 #######################################################
 output_vcfstat_file = os.path.join(out_table_dir, "vcf_stat.tab")
@@ -609,7 +592,7 @@ else:
 if len(samples_mixed) > 0:
     print("\n" + YELLOW + BOLD + "There are mixed sample(s): " + "\n"\
          + ",".join(samples_mixed) + END_FORMATTING + "\n")
-    remove_low_covered_mixed(args.output, saples_low_covered, "Mixed")
+    remove_low_covered_mixed(args.output, samples_mixed, "Mixed")
     #Remove sample from the list of filtered samples
     ################################################
     for samples_to_remove in samples_mixed:
@@ -617,46 +600,11 @@ if len(samples_mixed) > 0:
 else:
     print("\n" + YELLOW + BOLD + "No mixed samples have been detected" + "\n")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 print("\n\n" + MAGENTA + BOLD + "VARIANT CALL FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")
+
+#######################################################################################################################################
+#################################END OF VARIANT CALLING################################################################################
+#######################################################################################################################################
 
 if args.tuberculosis == True:
     print("\n\n" + BLUE + BOLD + "STARTING ANNOTATION IN GROUP: " + group_name + END_FORMATTING + "\n")
