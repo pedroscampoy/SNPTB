@@ -281,19 +281,19 @@ def ddtb_add(input_folder, output_filename, recalibrate=False, sample_filter=Fal
                     for position in new_sample['POS'].unique(): #extract first column in file
                         
                         if position not in final_ddbb["Position"].values:
-                            positions_added.append(position) #Count new positions for stats
+                            positions_added.append(int(position)) #Count new positions for stats
                             
                             new_row = len(final_ddbb.index)
-                            final_ddbb.loc[new_row,'Position'] = position
+                            final_ddbb.loc[new_row,'Position'] = int(position)
                             final_ddbb.loc[new_row,'Samples'] = sample
                             final_ddbb.loc[new_row,'N'] = int(1)
                             final_ddbb.loc[new_row,sample] = str(1)
                         else:
-                            positions_shared.append(position) #Count shared positions for stats
+                            positions_shared.append(int(position)) #Count shared positions for stats
                             
                             #Check whether the column matches the value and retrieve the first position [0]
                             #of the object index generated
-                            index_position = final_ddbb.index[final_ddbb["Position"] == position][0]
+                            index_position = final_ddbb.index[final_ddbb["Position"] == int(position)][0]
                             #Add sample to corresponding cell [position, samples]
                             number_samples_with_position = final_ddbb.loc[index_position,'N']
                             names_samples_with_position = final_ddbb.loc[index_position,'Samples']
@@ -308,9 +308,10 @@ def ddtb_add(input_folder, output_filename, recalibrate=False, sample_filter=Fal
                 else:
                     print(YELLOW + "The sample " + sample + " ALREADY exist" + END_FORMATTING)
 
-    final_ddbb = final_ddbb.fillna(0).sort_values("Position") #final_ddbb = final_ddbb["Position"].astype(int)
+    #final_ddbb = final_ddbb.fillna(0).sort_values("Position") 
+    final_ddbb["Position"] = final_ddbb["Position"].astype(int) #TO REMOVE when nucleotides are added
     final_ddbb['N'] = final_ddbb['N'].astype(int)
-    final_ddbb = final_ddbb.reset_index(drop=True)
+    #final_ddbb = final_ddbb.reset_index(drop=True)
 
     print("Final database now contains %s rows and %s columns" % final_ddbb.shape)
     if recalibrate == False:

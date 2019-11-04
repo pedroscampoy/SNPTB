@@ -229,13 +229,3 @@ def sam_to_index_bam(args):
     subprocess.run(["samtools", "index", output_sorted_path], 
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
     """
-
-
-# bwa_mapping(args)
-# add_SG(args)
-# sam_to_index_bam(args)
-
-#bowtie2_mapping(args)
-
-#python pe_mapper.py -1 ../RAW/AL14621_R1.fastq.gz -2 ../RAW/AL14621_R2.fastq.gz -r ../references/NC_000962.3.fasta -o .
-#python pe_mapper.py -1 /home/pedro/analysis/Mixed/Trimmed/1mixed_R1.clean.fastq.gz -2 /home/pedro/analysis/Mixed/Trimmed/1mixed_R2.clean.fastq.gz -r ../references/NC_000962.3.fasta -o /home/pedro/analysis/Mixed

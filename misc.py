@@ -317,27 +317,26 @@ def edit_sample_list(file_list, sample_list):
                 if line not in sample_list:
                     fout.write(line + "\n")
 
-def remove_low_covered(output_dir, sample_list):
+def remove_low_covered_mixed(output_dir, sample_list, type_remove):
     output_dir = os.path.abspath(output_dir)
     group = output_dir.split("/")[-1]
-    uncovered_dir = os.path.join(output_dir, "Uncovered")
+    uncovered_dir = os.path.join(output_dir, type_remove) #Uncovered or Mixed
     check_create_dir(uncovered_dir)
+
     sample_list_file = os.path.join(output_dir, "sample_list.txt")
+    
     for root, _, files in os.walk(output_dir):
-        #Remove recall gvcf to avoid using them to recalibrate
-        if root.endswith('GVCF_recal'):
+        #Any previous file created except for Table for mixed samples
+        # and Species for both uncovered and mixed
+        if root.endswith('GVCF_recal') or root.endswith('Coverage') \
+        or root.endswith('VCF') or root.endswith('VCF_recal') \
+        or root.endswith('Bam') or root.endswith('GVCF'):
             for name in files:
                 filename = os.path.join(root, name)
                 for sample_low in sample_list:
                     if name.startswith(sample_low):
                         os.remove(filename)
-        #Remove .cov to avoid its recalculation
-        if root.endswith('Coverage'):
-            for name in files:
-                filename = os.path.join(root, name)
-                for sample_low in sample_list:
-                    if name.startswith(sample_low):
-                        os.remove(filename)
+ 
         #Place low covered samples in a specific folder to analize them with different parameters
         if root.endswith(group):
             for name in files:
@@ -360,9 +359,9 @@ def clean_unwanted_files(args):
             if root.endswith("Bam") and not "bqsr" in filename:
                 print("Removed: " + filename)
                 os.remove(filename)
-            elif filename.endswith("cohort.g.vcf") or filename.endswith("cohort.g.vcf.idx"):
-                print("Removed: " + filename)
-                os.remove(filename)
+            #elif filename.endswith("cohort.g.vcf") or filename.endswith("cohort.g.vcf.idx"):
+            #    print("Removed: " + filename)
+            #    os.remove(filename)
             elif root.endswith("Annotation") and (filename.endswith("annot.genes.txt") or filename.endswith(".vcf") or filename.endswith(".annot.html")):
                 print("Removed: " + filename)
                 os.remove(filename)
@@ -416,6 +415,7 @@ def check_reanalysis(output_dir):
     gvcfr_dir = os.path.join(output_dir, "GVCF_recal")
     vcfr_dir = os.path.join(output_dir, "VCF_recal")
     cov_dir = os.path.join(output_dir, "Coverage")
+    table_dir = os.path.join(output_dir, "Table")
     
     previous_files = [bam_dir, vcf_dir, gvcf_dir, gvcfr_dir]
     
@@ -444,10 +444,10 @@ def check_reanalysis(output_dir):
                                 os.remove(filename)
                             elif "cohort" in filename and "/GVCF/" in filename:
                                 os.remove(filename)
-                    elif root == vcf_dir:
+                    elif root == vcf_dir or root == table_dir:
                         for name in files:
                             filename = os.path.join(root, name)
-                            if "cohort" in filename or filename.endswith(".bed"):
+                            if "cohort" in filename or filename.endswith(".bed") or filename.endswith(".tab"):
                                 os.remove(filename)
                     elif root == cov_dir:
                         for name in files:
@@ -457,3 +457,91 @@ def check_reanalysis(output_dir):
                             if "poorly_covered.bed" in filename and samples_analyzed < 100:
                                 os.remove(filename)
             #print(file_exist, samples_analyzed, samples_fastq)
+
+def extrach_variants_summary(vcf_table, distance=15, quality=10 ):
+    sample = vcf_table.split("/")[-1].split(".")[0]
+    
+    df = pd.read_csv(vcf_table, sep="\t", header=0)
+    
+    total_snp = len(df[df.TYPE == "SNP"].index)
+    total_indels = len(df[df.TYPE == "INDEL"].index)
+    total_homozygous = len(df[(df.TYPE == "SNP") & (df.gt0 == 1)].index)
+    total_heterozygous = len(df[(df.TYPE == "SNP") & (df.gt0 == 0)].index)
+    median_allele_freq = "%.2f" % (df.AF[df.TYPE == "SNP"].median())
+    mean_allele_freq = "%.2f" % (df.AF[df.TYPE == "SNP"].mean())
+    
+    distance = distance
+    QD = quality
+    position_to_filter = df['POS'][((df.snp_left_distance <= distance)|
+                                (df.snp_right_distance <= distance)|
+                                (df.window_10 >= 2)|
+                                (df.AF <= 0.0) |
+                                (df.len_AD > 2) |
+                                (df.TYPE != "SNP") |
+                                (df.QD <= QD) |
+                                (df.highly_hetz == True) |
+                                (df.poorly_covered == True) |
+                                (df.non_genotyped == True) |
+                                (df.is_polymorphic == True))].tolist()
+    
+    filtered_df = df[~df.POS.isin(position_to_filter)]
+    
+    filtered_df_htz = filtered_df[filtered_df.gt0 == 0]
+    
+    ftotal_snp = len(filtered_df[filtered_df.TYPE == "SNP"].index)
+    ftotal_homozygous = len(filtered_df[(filtered_df.TYPE == "SNP") & (filtered_df.gt0 == 1)].index)
+    ftotal_heterozygous = len(filtered_df[(filtered_df.TYPE == "SNP") & (filtered_df.gt0 == 0)].index)
+    fmedian_allele_freq = "%.2f" % (filtered_df.AF[filtered_df.TYPE == "SNP"].median())
+    fmean_allele_freq = "%.2f" % (filtered_df.AF[filtered_df.TYPE == "SNP"].mean())
+    fmean_allele_freq_htz = "%.2f" % (filtered_df_htz.AF[filtered_df_htz.TYPE == "SNP"].mean())
+    
+    output = [sample,
+              total_snp,
+              total_indels,
+              total_homozygous,
+              total_heterozygous,
+              median_allele_freq,
+              mean_allele_freq,
+              ftotal_snp,
+              ftotal_homozygous,
+              ftotal_heterozygous,
+              fmedian_allele_freq,
+              fmean_allele_freq,
+              fmean_allele_freq_htz]
+    output = [str(x) for x in output]
+    
+    return "\t".join(output)
+
+def vcf_stats(folder_table, distance=15, quality=10):
+    
+    out_file = os.path.join(folder_table, "vcf_stat.tab")
+    mixed_samples = []
+    
+    with open(out_file, 'w+') as fout:
+        fout.write("\t".join(["SAMPLE", 
+                              "#SNP", 
+                              "#INDELS", 
+                              "#HOMOZ_SNP", 
+                              "#HETZ_SNP", 
+                              "MEDIAN_AF_SNP", 
+                              "MEAN_AF_SNP", 
+                              "#FSNP", 
+                              "#FHOMOZ_SNP", 
+                              "#FHETZ_SNP", 
+                              "FMEDIAN_AF_SNP",
+                              "FMEAN_AF_SNP",
+                              "FMEAN_AF_SNP_HTZ"]))
+        fout.write("\n")
+        for root, _, files in os.walk(folder_table):
+            for name in files:
+                filename = os.path.join(root, name)
+                if filename.endswith("raw.tab"):
+                    line = extrach_variants_summary(filename)
+                    line_split = line.split("\t")
+                    sample = line_split[0]
+                    htz_filtered = line_split[9]
+                    if int(htz_filtered) > 100:
+                        mixed_samples.append(sample)
+                    fout.write(line)
+                    fout.write("\n")
+    return mixed_samples

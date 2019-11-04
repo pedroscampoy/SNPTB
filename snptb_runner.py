@@ -13,8 +13,8 @@ import datetime
 
 # Local application imports
 from misc import check_file_exists, extract_sample, obtain_output_dir, check_create_dir, execute_subprocess, \
-    extract_read_list, file_to_list, get_coverage, obtain_group_cov_stats, remove_low_covered, clean_unwanted_files, \
-    check_reanalysis
+    extract_read_list, file_to_list, get_coverage, obtain_group_cov_stats, remove_low_covered_mixed, clean_unwanted_files, \
+    check_reanalysis, vcf_stats
 from bbduk_trimmer import bbduk_trimming
 from pe_mapper import bwa_mapping, sam_to_index_bam
 from bam_recall import picard_dictionary, samtools_faidx, picard_markdup, haplotype_caller, call_variants, \
@@ -98,7 +98,7 @@ def get_arguments():
 
     params_group = parser.add_argument_group('Parameters', 'parameters for diferent stringent conditions')
 
-    params_group.add_argument('-C', '--clean', required=False, action='store_true', help='Clean unwanted files for standard execution')
+    params_group.add_argument('-C', '--noclean', required=False, action='store_false', help='Clean unwanted files for standard execution')
     params_group.add_argument('-c', '--mincov', type=int, required=False, default=20, help='Minimun coverage to add samples into analysis')
     params_group.add_argument('-T', '--threads', type=str, dest = "threads", required=False, default=16, help='Threads to use')
     params_group.add_argument('-M', '--memory', type=str, dest = "memory", required=False, default=32, help='MAx memory to use')
@@ -183,6 +183,7 @@ out_annot_dir = os.path.join(args.output, "Annotation")
 out_species_dir = os.path.join(args.output, "Species")
 out_uncovered_dir = os.path.join(args.output, "Uncovered")
 out_compare_dir = os.path.join(args.output, "Compare")
+out_table_dir = os.path.join(args.output, "Table")
 
 highly_hetz_bed = os.path.join(out_vcf_dir, "highly_hetz.bed")
 non_genotyped_bed = os.path.join(out_vcf_dir, "non_genotyped.bed")
@@ -331,12 +332,10 @@ else:
     print(GREEN + "Calculating low covered regions " + group_name + END_FORMATTING)
     poorly_covered_to_bed(out_cov_dir, "poorly_covered", reference="CHROM", min_coverage=2, nocall_fr=0.5)
 
-#saples_low_covered = obtain_group_cov_stats(out_cov_dir, low_cov_threshold=args.mincov, unmmaped_threshold=20)
-
 if len(saples_low_covered) > 0:
     print("\n" + YELLOW + BOLD + "There are sample(s) with low coverage that will be removed from the analysis: " + "\n"\
          + ",".join(saples_low_covered) + END_FORMATTING + "\n")
-    remove_low_covered(args.output, saples_low_covered)
+    remove_low_covered_mixed(args.output, saples_low_covered, "Uncovered")
     #Remove sample from the list of filtered samples
     ################################################
     for samples_to_remove in saples_low_covered:
@@ -548,7 +547,8 @@ else:
 ###########################################################################
 ###########################################################################
 ###########################################################################
-print(GREEN + "Determininf highly heterozygous and poorly genotyped regions in " + group_name + END_FORMATTING)
+
+print(GREEN + "Determinind highly heterozygous and poorly genotyped regions in " + group_name + END_FORMATTING)
 highly_hetz_to_bed(output_vcfhfcombined_file, "highly_hetz", reference="CHROM", nocall_fr=0.5)
 non_genotyped_to_bed(output_vcfhfcombined_file, "non_genotyped", reference="CHROM", nocall_fr=0.5)
 
@@ -578,6 +578,82 @@ for r1_file, r2_file in zip(r1, r2):
              poorly_covered=poorly_covered_bed, 
              bed_to_filter=bed_polymorphism, 
              var_type="SNP")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#DETEMINING MIXED ORIGIN IN GROUP######################
+#######################################################
+output_vcfstat_file = os.path.join(out_table_dir, "vcf_stat.tab")
+if os.path.isfile(output_vcfstat_file):
+    print("\n" + YELLOW + DIM + output_vcfstat_file + " EXIST\nOmmiting Mixed search in group " + group_name + END_FORMATTING)
+    samples_mixed = []
+else:
+    print(GREEN + "Finding Mixed samples in " + group_name + END_FORMATTING)
+    samples_mixed = vcf_stats(out_table_dir, distance=15, quality=10)
+
+if len(samples_mixed) > 0:
+    print("\n" + YELLOW + BOLD + "There are mixed sample(s): " + "\n"\
+         + ",".join(samples_mixed) + END_FORMATTING + "\n")
+    remove_low_covered_mixed(args.output, saples_low_covered, "Mixed")
+    #Remove sample from the list of filtered samples
+    ################################################
+    for samples_to_remove in samples_mixed:
+        sample_list_F.remove(samples_to_remove)
+else:
+    print("\n" + YELLOW + BOLD + "No mixed samples have been detected" + "\n")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 print("\n\n" + MAGENTA + BOLD + "VARIANT CALL FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")
@@ -666,7 +742,7 @@ ddtb_compare(compare_snp_matrix)
 print("\n\n" + MAGENTA + BOLD + "COMPARING FINISHED IN GROUP: " + group_name + END_FORMATTING + "\n")
 
 
-if args.clean == True:
+if args.noclean == True:
     print("\n\n" + BLUE + BOLD + "STARTING CLEANING IN GROUP: " + group_name + END_FORMATTING + "\n")
     clean_unwanted_files(args)
 else:

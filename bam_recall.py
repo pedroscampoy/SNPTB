@@ -117,8 +117,8 @@ def picard_markdup(args):
 
     #Handled in Haplotype Caller function
     #samtools index: samtools index $output_dir/$sample".sorted.bam"
-    #subprocess.run(["samtools", "index", output_markdup_sorted], 
-    #    stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+    subprocess.run(["samtools", "index", output_markdup_sorted], 
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
     check_remove_file(input_bam)
     check_remove_file(output_markdup)
 
@@ -201,8 +201,8 @@ def haplotype_caller(args, recalibrate=False, ploidy=1, bamout=False, forceactiv
 #"--min-base-quality-score", str(base_quality),
 
     #Create bam index
-    cmd_index = ["samtools", "index", input_bam_to_call]
-    execute_subprocess(cmd_index)
+    #cmd_index = ["samtools", "index", input_bam_to_call]
+    #execute_subprocess(cmd_index)
 
     if bamout:
         bamout_output_dir = obtain_output_dir(args, "Bamout")
