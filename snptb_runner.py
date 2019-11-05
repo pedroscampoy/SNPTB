@@ -94,7 +94,7 @@ def get_arguments():
     annot_group = parser.add_argument_group('Annotation', 'parameters for variant annotation')
 
     annot_group.add_argument('--mash_database', type=str, required=False, default="/home/laura/DATABASES/Mash/refseq.genomes.k21s1000.msh", help='MASH ncbi annotation containing all species database')
-
+    annot_group.add_argument('--snpeff_database', type=str, required=False, default="Mycobacterium_tuberculosis_h37rv", help='snpEFF annotation database')
 
     params_group = parser.add_argument_group('Parameters', 'parameters for diferent stringent conditions')
 
@@ -626,7 +626,7 @@ if args.tuberculosis == True:
                     else:
                         print(GREEN + "Annotating snps in sample " + sample + END_FORMATTING)
                         replace_reference(filename, output_path)
-                        snpeff_annotation(args, output_path, database="Mycobacterium_tuberculosis_h37rv")
+                        snpeff_annotation(args, output_path, database=args.snpeff_database)
                         #Handle output vcf file from SnpEff annotation
                         vcf_path = (".").join(output_path.split(".")[:-1])
                         annot_vcf = vcf_path + ".annot"

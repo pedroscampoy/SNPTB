@@ -80,7 +80,7 @@ def extract_sample(R1_file, R2_file):
         sample_name = sample_name_R.split(match)[0]
     elif bar_suffix:
         match = bar_suffix.group()
-        sample_name = sample_name_R.split(match)[0]
+        sample_name = sample_name_R.rstrip("_")
     else:
         sample_name = sample_name_R
 
@@ -168,7 +168,7 @@ def execute_subprocess(cmd):
         sys.exit(RED + BOLD + "failed to execute program '%s': %s" % (prog, str(e)) + END_FORMATTING)
 
 
-def extract_read_list(input_dir):
+def extract_read_list_legacy(input_dir):
     """
     Search files in a directory sort by name and extract comon name of R1 and R2
     with extract_sample() function
@@ -196,21 +196,37 @@ def extract_read_list(input_dir):
     r2_list = sorted(r2_list)
     return r1_list, r2_list
 
-    # for filename in sorted(os.listdir(input_dir)):
-    #     filename = os.path.abspath(filename)
-    #     is_fasta = re.match('.*\.fast[aq](\.gz)*',filename)
-    #     r1 = re.match('.*(_R1_|_1_).*\.fast[aq](\.gz)*',filename)
-    #     r2 = re.match('.*(_R2_|_2_).*\.fast[aq](\.gz)*',filename)
-    #     if is_fasta:
-    #         if r1:
-    #             r1_list.append(r1.group())
-    #         elif r2:
-    #             r2_list.append(r2.group())
-    #         else:
-    #             print(RED + "ERROR, file is not R1 nor R2" + END_FORMATTING)
-    #             sys.exit(1)
+def extract_read_list(input_dir):
+    """
+    Search files in a directory sort by name and extract comon name of R1 and R2
+    with extract_sample() function
+    190615 - Limit only parent folder, not subdirectories
+    """
+    input_dir = os.path.abspath(input_dir)
+    all_fasta = []
+    r1_list = []
+    r2_list = []
+    for root, _, files in os.walk(input_dir):
+        if root == input_dir: # This only apply to parent folder, not subdirectories
+            for name in files:
+                filename = os.path.join(root, name)
+                is_fasta = re.match(r'.*\.f(ast)*[aq](\.gz)*',filename)
+                if is_fasta:
+                    all_fasta.append(filename)
+    all_fasta = sorted(all_fasta)
+    if len(all_fasta) % 2 == 0:
+        for index, fasta_file in enumerate(all_fasta):
+            if index % 2 == 0:
+                r1_list.append(fasta_file)
+            elif index % 1 == 0:
+                r2_list.append(fasta_file)          
+    else:
+        print('ERROR: The number of fastq sequence are not paired')
+        
+    r1_list = sorted(r1_list)
+    r2_list = sorted(r2_list)
     
-    # return r1_list, r2_list
+    return r1_list, r2_list
 
 
 def extract_sample_list():

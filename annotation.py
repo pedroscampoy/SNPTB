@@ -18,46 +18,24 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 annotation_dir = os.path.join(script_dir, "annotation/genes")
 annotation_dir_res = os.path.join(script_dir, "annotation/resistance")
 
-essential_file = os.path.join(annotation_dir, "dict_locus_essential.txt")
-product_file = os.path.join(annotation_dir, "dict_locus_product.txt")
-resistance_file_V1 = os.path.join(annotation_dir_res, "dict_position_resistance_v1.txt")
+resistance_file_V1 = os.path.join(annotation_dir_res, "dict_position_resistance_v1.txt") #PhyResSE
 resistance_file_v2 = os.path.join(annotation_dir_res, "dict_position_resistance_v2_inf.txt") #Crated on 190718
 resistance_file_v3 = os.path.join(annotation_dir_res, "dict_position_resistance_v2.txt") #Crated on 190718
 high_confidence_file = os.path.join(annotation_dir_res, "dict_position_resistance_high_conf.txt")
 
-dict_essential = {}
-dict_product = {}
-dict_res_v1 = {}
-dict_res_v2 = {}
-dict_res_v3 = {}
-dict_high_conf = {}
 
-#Create dictionary of essential genes
-with open(essential_file, 'r') as f:
-    for line in f:
-        dict_essential[line.split(":")[0]] = line.split(":")[1].strip()
+def file_to_dict(file_format):
+    formatted_dict = {}
+    with open (file_format, 'r') as f:
+        for line in f:
+            formatted_dict[int(line.split(":")[0])] = line.split(":")[1].strip().split(",")
+    return formatted_dict
 
-#Create dictionary of gene products
-with open(product_file, 'r') as f:
-    for line in f:
-        dict_product[line.split(":")[0]] = (":").join(line.split(":")[1:]).strip()
 
-#Create dictionary of resistance positions
-with open (resistance_file_V1, 'r') as f:
-    for line in f:
-        dict_res_v1[int(line.split(":")[0])] = line.split(":")[1].strip().split(",")
-
-with open (resistance_file_v2, 'r') as f:
-    for line in f:
-        dict_res_v2[int(line.split(":")[0])] = line.split(":")[1].strip().split(",")
-
-with open (resistance_file_v3, 'r') as f:
-    for line in f:
-        dict_res_v3[int(line.split(":")[0])] = line.split(":")[1].strip().split(",")
-
-with open (high_confidence_file, 'r') as f:
-    for line in f:
-        dict_high_conf[int(line.split(":")[0])] = line.split(":")[1].strip().split(",")
+dict_res_v1 = file_to_dict(resistance_file_V1)
+dict_res_v2 = file_to_dict(resistance_file_v2)
+dict_res_v3 = file_to_dict(resistance_file_v3)
+dict_high_conf = file_to_dict(high_confidence_file)
 
 
 def extract_reference_vcf(input_vcf):
@@ -333,7 +311,6 @@ def add_resistance_snp(vcf_df, dict_high_confidence=dict_high_conf, dict_resista
                     
                 else:
                     list_resistance.append("*")
-                    
                     vcf_df.loc[index,'Resistance'] = resistance + "*"
                     
             list_resistance.append("\t")
@@ -345,7 +322,7 @@ def add_resistance_snp(vcf_df, dict_high_confidence=dict_high_conf, dict_resista
     else:
         print("No resistance were found\n")
 
-
+"""
 def add_essential_cateory(row, dict_essential=dict_essential):
     if row.Gene_ID in dict_essential.keys():
         if dict_essential[row.Gene_ID] == "essential":
@@ -356,7 +333,7 @@ def add_essential_cateory(row, dict_essential=dict_essential):
 def add_product_cateory(row, dict_product=dict_product):
     if row.Gene_ID in dict_product.keys():
         return dict_product[row.Gene_ID]
-
+"""
 
 def final_annotation(vcf_file_annot, *bed_files):
     """
@@ -375,12 +352,6 @@ def final_annotation(vcf_file_annot, *bed_files):
     extend_final = ".annot.tsv"
 
     annotate_bed_s(df_vcf, *bed_files)
-
-    #Add essential info
-    #df_vcf['Is_essential'] = df_vcf.apply(add_essential_cateory, axis=1)
-
-    #Add protein product
-    #df_vcf['Product'] = df_vcf.apply(add_product_cateory, axis=1)
 
     #Add lineage info 
     add_lineage_Coll(df_vcf)
