@@ -519,7 +519,7 @@ def identify_heterozygous(vcf_file, nocall_fr=0.5):
             #is_heterozygous = [x.startswith("0/1") for x in data_row] #True False array
             is_heterozygous_count = sum(is_heterozygous) #True = 1, False = 0
             #Drop positions
-            if is_heterozygous_count / len(is_heterozygous) > nocall_fr:
+            if is_heterozygous_count / len(is_heterozygous) >= nocall_fr:
                 highly_hetz_positions.append(df.loc[index, 'POS'])
                 #print(df.loc[index, 'POS'], is_heterozygous_count, len(is_heterozygous))
         
@@ -548,7 +548,7 @@ def identify_non_genotyped(vcf_file, nocall_fr=0.5):
             #print(data_row.tolist())
             non_genotyped = [x.startswith("./.") for x in data_row] #True False array
             non_genotyped_count = sum(non_genotyped) #True = 1, False = 0
-            if non_genotyped_count / len(non_genotyped) > nocall_fr:
+            if non_genotyped_count / len(non_genotyped) >= nocall_fr:
                 non_genotyped_positions.append(df.loc[index, 'POS'])
                 #print(df.loc[index, 'POS'], is_heterozygous_count, len(is_heterozygous))
         
@@ -618,7 +618,7 @@ def identify_uncovered(cov_folder, min_coverage=2, nocall_fr=0.5):
     
     n_samples = len(df_any_uncovered.columns) - 2
     
-    df_half_uncovered_list = df_any_uncovered['Position'][df_any_uncovered.N_uncovered / n_samples > nocall_fr].tolist()
+    df_half_uncovered_list = df_any_uncovered['Position'][df_any_uncovered.N_uncovered / n_samples >= nocall_fr].tolist()
     
     return df_half_uncovered_list
 

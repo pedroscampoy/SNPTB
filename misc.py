@@ -351,17 +351,21 @@ def remove_low_covered_mixed(output_dir, sample_list, type_remove):
             for name in files:
                 filename = os.path.join(root, name)
                 for sample_low in sample_list:
-                    if name.startswith(sample_low):
-                        os.remove(filename)
+                    sample_dot = sample_low + "." #Adapt name to the posibility that two samples starts with the same name
+                    if name.startswith(sample_dot):
+                        if os.path.isfile(sample_list_file):
+                            os.remove(filename)
  
         #Place low covered samples in a specific folder to analize them with different parameters
         if root.endswith(group):
             for name in files:
                 filename = os.path.join(root, name)
                 for sample_low in sample_list:
-                    if name.startswith(sample_low) and name.endswith("fastq.gz"):
+                    sample_lowbar = sample_low + "_"
+                    if name.startswith(sample_lowbar) and name.endswith("fastq.gz"):
                         dest_uncovered_path = os.path.join(uncovered_dir, name)
-                        os.rename(filename, dest_uncovered_path)
+                        if os.path.isfile(sample_list_file):
+                            os.rename(filename, dest_uncovered_path)
     if os.path.isfile(sample_list_file):
         edit_sample_list(sample_list_file, sample_list)
 
