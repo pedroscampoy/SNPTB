@@ -22,6 +22,7 @@ resistance_file_V1 = os.path.join(annotation_dir_res, "dict_position_resistance_
 resistance_file_v2 = os.path.join(annotation_dir_res, "dict_position_resistance_v2_inf.txt") #Crated on 190718
 resistance_file_v3 = os.path.join(annotation_dir_res, "dict_position_resistance_v2.txt") #Crated on 190718
 high_confidence_file = os.path.join(annotation_dir_res, "dict_position_resistance_high_conf.txt")
+ecoli_annot_file = os.path.join(annotation_dir_res, "EColi.txt")
 
 
 def file_to_dict(file_format):
@@ -36,6 +37,7 @@ dict_res_v1 = file_to_dict(resistance_file_V1)
 dict_res_v2 = file_to_dict(resistance_file_v2)
 dict_res_v3 = file_to_dict(resistance_file_v3)
 dict_high_conf = file_to_dict(high_confidence_file)
+dict_ecoli_annot = file_to_dict(ecoli_annot_file)
 
 
 def extract_reference_vcf(input_vcf):

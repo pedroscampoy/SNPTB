@@ -34,6 +34,8 @@ def get_arguments():
     parser.add_argument('-i', '--input', dest="input_dir", metavar="input_directory", type=str, required=True, help='REQUIRED.Input directory containing all vcf files')
     parser.add_argument('-s', '--sample_list', type=str, required=False, help='File with sample names to analyse instead of all samples')
     parser.add_argument("-r", "--recalibrate", required= False, type=str, default=False, help='Pipeline folder where Bam and VCF subfolders are present')
+    parser.add_argument("-R", "--reference", required= False, type=str, default=False, help='Reference fasta file used in original variant calling')
+
     parser.add_argument('-o', '--output', type=str, required=True, help='Name of all the output files, might include path')
 
     arguments = parser.parse_args()
@@ -145,7 +147,7 @@ def identify_nongenotyped_mpileup(reference_file, row_position, sample_list_matr
         #new_list_presence = [mode if x == "!" else x for x in list_presence]
         return list_presence
 
-def extract_recalibrate_params(pipeline_folder):
+def extract_recalibrate_params(pipeline_folder, reference=False):
     cohort_file = ""
     pipeline_folder = os.path.abspath(pipeline_folder)
     for root, dirs, _ in os.walk(pipeline_folder):
@@ -157,12 +159,14 @@ def extract_recalibrate_params(pipeline_folder):
                     for file_vcf in os.listdir(subfolder):
                         if file_vcf.endswith("cohort.combined.hf.vcf"):
                             cohort_file = os.path.join(subfolder, file_vcf)
-                            
-                            with open(cohort_file, 'r') as f:
-                                for line in f:
-                                    if line.startswith("#"):
-                                        if "--reference " in line:
-                                            reference_file = line.split("--reference ")[1].strip().split(" ")[0].strip()
+                            if reference == False:
+                                with open(cohort_file, 'r') as f:
+                                    for line in f:
+                                        if line.startswith("#"):
+                                            if "--reference " in line:
+                                                reference_file = line.split("--reference ")[1].strip().split(" ")[0].strip()
+                            else:
+                                reference_file = reference
                 elif subfolder.endswith("/Bam"):
                     bam_folder = subfolder
     if cohort_file:
@@ -324,8 +328,14 @@ def ddtb_add(input_folder, output_filename, recalibrate=False, sample_filter=Fal
             print("\n" + MAGENTA + "Recalibration selected" + END_FORMATTING)
             print(output_filename)
             output_filename = output_filename + ".revised.tsv"
-            final_ddbb_revised = recalibrate_ddbb_vcf(final_ddbb, recalibrate_params[0], recalibrate_params[1], recalibrate_params[2])
+            if args.reference and args.reference != False:
+                final_ddbb_revised = recalibrate_ddbb_vcf(final_ddbb, recalibrate_params[0], recalibrate_params[1], args.reference)
+                
+            else:
+                final_ddbb_revised = recalibrate_ddbb_vcf(final_ddbb, recalibrate_params[0], recalibrate_params[1], recalibrate_params[2])
+
             final_ddbb_revised.to_csv(output_filename, sep='\t', index=False)
+
         else:
             print("The directory supplied for recalculation does not exixt")
             sys.exit(1)
