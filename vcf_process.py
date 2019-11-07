@@ -23,6 +23,18 @@ def calculate_ALT_AD(row):
         #ALT_AD = row.AD.split(",")[1]
         return split_AD[0]
 
+def calculate_true_ALT(row):
+    split_AD = row.AD.split(",")[1:]
+    split_AD = [int(x) for x in split_AD]
+    split_ALT = row.ALT.split(",")
+    if row.len_AD > 2:
+        max_index = split_AD.index(max(split_AD))
+        true_ALT = split_ALT[max_index]
+        return true_ALT
+    else:
+        #ALT_AD = row.AD.split(",")[1]
+        return split_ALT[0]
+
 def handle_polymorphism(vcf_df):
     for index, _ in vcf_df[vcf_df.len_AD > 2].iterrows():
         split_AD = vcf_df.loc[index, 'AD'].split(",")[1:]

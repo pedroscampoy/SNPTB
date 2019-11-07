@@ -328,14 +328,16 @@ def ddtb_add(input_folder, output_filename, recalibrate=False, sample_filter=Fal
             print("\n" + MAGENTA + "Recalibration selected" + END_FORMATTING)
             print(output_filename)
             output_filename = output_filename + ".revised.tsv"
+
+            final_ddbb_revised = recalibrate_ddbb_vcf(final_ddbb, recalibrate_params[0], recalibrate_params[1], recalibrate_params[2])
+            """
             if args.reference and args.reference != False:
                 final_ddbb_revised = recalibrate_ddbb_vcf(final_ddbb, recalibrate_params[0], recalibrate_params[1], args.reference)
                 
             else:
                 final_ddbb_revised = recalibrate_ddbb_vcf(final_ddbb, recalibrate_params[0], recalibrate_params[1], recalibrate_params[2])
-
+            """
             final_ddbb_revised.to_csv(output_filename, sep='\t', index=False)
-
         else:
             print("The directory supplied for recalculation does not exixt")
             sys.exit(1)

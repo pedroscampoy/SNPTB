@@ -156,7 +156,7 @@ def samtools_faidx(args):
         execute_subprocess(cmd)
 
 
-def haplotype_caller(args, recalibrate=False, ploidy=1, bamout=False, forceactive=False, intervals=False):
+def haplotype_caller(args, recalibrate=False, ploidy=2, bamout=False, forceactive=False, intervals=False):
     #base_quality=13, 
     """
     #No excuses

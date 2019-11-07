@@ -9,7 +9,7 @@ import re
 import subprocess
 from tabulate import tabulate
 from misc import get_snpeff_path, check_create_dir
-from vcf_process import bed_to_df,bed_to_df, add_bed_info, annotate_bed_s, obtain_output_dir, calculate_ALT_AD
+from vcf_process import bed_to_df,bed_to_df, add_bed_info, annotate_bed_s, obtain_output_dir, calculate_ALT_AD, calculate_true_ALT
 
 ##Import files containing annotation info and convert them to dictionary
 ##TO DO: Compensatory mutations
@@ -51,6 +51,7 @@ def extract_reference_vcf(input_vcf):
         
     reference = next_line.split()[0]
     return reference
+
 
 def replace_reference(input_vcf, output, ref_old=False, ref_new="Chromosome" ):
     """
@@ -105,6 +106,11 @@ def snpeff_annotation(args, vcf_file, database="Mycobacterium_tuberculosis_h37rv
 
 
 def import_annot_to_pandas(vcf_file, sep='\t'):
+    """
+    Parse vcf outputted by snpEFF which adds the ANN field
+    Dependences: calculate_ALT_AD
+                calculate_true_ALT
+    """
     header_lines = 0
     with open(vcf_file) as f:
         first_line = f.readline().strip()
@@ -154,6 +160,8 @@ def import_annot_to_pandas(vcf_file, sep='\t'):
         dataframe['REF_AD'] = dataframe['AD'].str.split(",").str[0]
 
         dataframe['ALT_AD'] = dataframe.apply(calculate_ALT_AD, axis=1)
+        dataframe['ALT'] = dataframe.apply(calculate_true_ALT, axis=1)
+
         dataframe[['gt0','gt1']] = dataframe['GT'].str.split(r'[/|\|]', expand=True)
 
         dataframe['HGVS.c'] = dataframe['HGVS.c'].str.split(".").str[-1]
@@ -285,10 +293,16 @@ def add_lineage_Coll(vcf_df):
         print("No lineage were found\n")
 
 
-def add_resistance_snp(vcf_df, dict_high_confidence=dict_high_conf, dict_resistance_position=dict_res_v1):
-    list_resistance = []
+def add_resistance_snp(vcf_df, dict_high_confidence=dict_high_conf, dict_resistance_position=dict_res_v1,
+                       dict_resistance_v2=dict_res_v2, dict_ecoli_annot=dict_ecoli_annot):
+    
+    """
+    TODO:Function for REs_v1, Res_V2 and ecoli
+    """
     
     vcf_df['Resistance'] = np.nan
+    vcf_df['Resistance_inf'] = np.nan
+    vcf_df['ecoli_annot'] = np.nan
 
     for index, _ in vcf_df.iterrows():
         position = int(vcf_df.loc[index,'POS'])
@@ -298,31 +312,30 @@ def add_resistance_snp(vcf_df, dict_high_confidence=dict_high_conf, dict_resista
             #Check position in resistance dict
             #Create a list with all possible nucleotydes in each position
             nucleotides = dict_resistance_position[position][1:]
-
             if alt_nucleotide in nucleotides:
-                snp_resist = alt_nucleotide #ALT
                 resistance = dict_resistance_position[int(position)][0] #Resist name
-                list_resistance.append(resistance)
-                list_resistance.append(str(position)) #POS
-                list_resistance.append(snp_resist)
+                vcf_df.loc[index, 'Resistance'] = resistance
                 #Evaluate High confidence (1.Position; 2. Nucleotide; 3. yes value)
-                if  (int(position) in dict_high_confidence.keys()) and \
+                if position in dict_high_confidence.keys() and \
                 (alt_nucleotide in dict_high_confidence[int(position)][1:] and \
-                dict_high_confidence[int(position)][0] == 'yes'):
-                    vcf_df.loc[index,'Resistance'] = resistance
-                    
-                else:
-                    list_resistance.append("*")
+                dict_high_confidence[int(position)][0] == 'no'):
                     vcf_df.loc[index,'Resistance'] = resistance + "*"
                     
-            list_resistance.append("\t")
-    #list_resistance.append(resistance + "\n")
-    
-    if len(list_resistance) > 3:
-        print("This strain has resistance positions:\n:" + ",".join(list_resistance))
-        return ",".join(list_resistance)
-    else:
-        print("No resistance were found\n")
+        if position in dict_resistance_v2.keys():
+            #Check position in resistance dict
+            #Create a list with all possible nucleotydes in each position
+            nucleotides = dict_resistance_v2[position][1:]
+            if alt_nucleotide in nucleotides:
+                resistance_2 = dict_resistance_v2[int(position)][0] #Resist name
+                vcf_df.loc[index, 'Resistance_inf'] = resistance_2
+                
+        if position in dict_ecoli_annot.keys():
+            #Check position in resistance dict
+            #Create a list with all possible nucleotydes in each position
+            nucleotides = dict_ecoli_annot[position][1:]
+            if alt_nucleotide in nucleotides:
+                resistance_eco = dict_ecoli_annot[int(position)][0] #Resist name
+                vcf_df.loc[index, 'ecoli_annot'] = resistance_eco
 
 """
 def add_essential_cateory(row, dict_essential=dict_essential):
